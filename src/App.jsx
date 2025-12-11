@@ -77,9 +77,8 @@ function App() {
 		);
 	}
 
-	/* 3) 정상적인 event 파라미터 → 해당 행사 갤러리 화면 */
 	const slides = eventData.photos.map((p) => ({
-		src: p.src,
+		src: p.full,
 		alt: p.alt,
 	}));
 
@@ -96,8 +95,8 @@ function App() {
 
 			<main className="grid">
 				{eventData.photos.map((photo, idx) => (
-					<button key={photo.src} className="thumb" onClick={() => setOpenIndex(idx)}>
-						<img src={photo.src} alt={photo.alt} loading="lazy" className="thumb-img" />
+					<button key={photo.full} className="thumb" onClick={() => setOpenIndex(idx)}>
+						<img src={photo.thumb} alt={photo.alt} loading="lazy" decoding="async" className="thumb-img" />
 					</button>
 				))}
 			</main>

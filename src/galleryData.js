@@ -8,27 +8,63 @@ export const EVENTS = {
     location: "울산 남구 공업탑 일대",
     photos: [
       {
-        src: "/gallery-images/namgu2025_festival/candles-8454262.jpg",
+        full: "/gallery-images/namgu2025_festival/candles-8454262_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/candles-8454262_thumb.webp",
         alt: "공업탑 앞 메인 무대 모습"
       },
       {
-        src: "/gallery-images/namgu2025_festival/christmas-5861895.jpg",
+        full: "/gallery-images/namgu2025_festival/christmas-5861895_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/christmas-5861895_thumb.webp",
         alt: "거리에서 공연을 즐기는 시민들"
       },
       {
-        src: "/gallery-images/namgu2025_festival/christmas-background-1869989.jpg",
+        full: "/gallery-images/namgu2025_festival/christmas-background-1869989_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/christmas-background-1869989_thumb.webp",
         alt: "체험 부스에서 활동 중인 아이들"
       },
       {
-        src: "/gallery-images/namgu2025_festival/frost-9983255.jpg",
+        full: "/gallery-images/namgu2025_festival/frost-9983255_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/frost-9983255_thumb.webp",
         alt: "공업탑 앞 메인 무대 모습"
       },
       {
-        src: "/gallery-images/namgu2025_festival/snow-6769948.jpg",
+        full: "/gallery-images/namgu2025_festival/snow-6769948_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/snow-6769948_thumb.webp",
         alt: "거리에서 공연을 즐기는 시민들"
       },
       {
-        src: "/gallery-images/namgu2025_festival/winter-9748652.jpg",
+        full: "/gallery-images/namgu2025_festival/winter-9748652_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/winter-9748652_thumb.webp",
+        alt: "체험 부스에서 활동 중인 아이들"
+      },
+      {
+        full: "/gallery-images/namgu2025_festival/candles-8454262_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/candles-8454262_thumb.webp",
+        alt: "공업탑 앞 메인 무대 모습"
+      },
+      {
+        full: "/gallery-images/namgu2025_festival/christmas-5861895_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/christmas-5861895_thumb.webp",
+        alt: "거리에서 공연을 즐기는 시민들"
+      },
+      {
+        full: "/gallery-images/namgu2025_festival/christmas-background-1869989_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/christmas-background-1869989_thumb.webp",
+        alt: "체험 부스에서 활동 중인 아이들"
+      },
+      {
+        full: "/gallery-images/namgu2025_festival/frost-9983255_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/frost-9983255_thumb.webp",
+        alt: "공업탑 앞 메인 무대 모습"
+      },
+      {
+        full: "/gallery-images/namgu2025_festival/snow-6769948_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/snow-6769948_thumb.webp",
+        alt: "거리에서 공연을 즐기는 시민들"
+      },
+      {
+        full: "/gallery-images/namgu2025_festival/winter-9748652_full.webp",
+        thumb: "/gallery-images/namgu2025_festival/winter-9748652_thumb.webp",
         alt: "체험 부스에서 활동 중인 아이들"
       }
     ]
@@ -41,7 +77,8 @@ export const EVENTS = {
     location: "울산 남구 공업탑 로터리",
     photos: [
       {
-        src: "/gallery-images/namgu2025_nightmarket/01.webp",
+        full: "/gallery-images/namgu2025_nightmarket/01_full.webp",
+        thumb: "/gallery-images/namgu2025_nightmarket/01_thumb.webp",
         alt: "야시장 전경과 공업탑 조명"
       }
     ]
