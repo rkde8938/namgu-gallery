@@ -1,39 +1,17 @@
 {
-    "test": {
-        "title": "테스트",
-        "date": "2025-01-03",
-        "location": "울산 남구 공업탑 일대",
-        "photos": [
-            {
-                "full": "\/gallery-images\/test\/14_full.webp",
-                "thumb": "\/gallery-images\/test\/14_thumb.webp",
-                "alt": "테스트 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/test\/9_full.webp",
-                "thumb": "\/gallery-images\/test\/9_thumb.webp",
-                "alt": "테스트 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/test\/28_full.webp",
-                "thumb": "\/gallery-images\/test\/28_thumb.webp",
-                "alt": "테스트 - 이미지"
-            }
-        ]
-    },
     "cristmas": {
         "title": "크리스마스",
         "date": "21",
         "location": "123",
         "photos": [
             {
-                "full": "\/gallery-images\/cristmas\/candles-8454262_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/candles-8454262_thumb.webp",
+                "full": "\/gallery-images\/cristmas\/christmas-5861895_full.webp",
+                "thumb": "\/gallery-images\/cristmas\/christmas-5861895_thumb.webp",
                 "alt": "크리스마스 - 이미지"
             },
             {
-                "full": "\/gallery-images\/cristmas\/christmas-5861895_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/christmas-5861895_thumb.webp",
+                "full": "\/gallery-images\/cristmas\/candles-8454262_full.webp",
+                "thumb": "\/gallery-images\/cristmas\/candles-8454262_thumb.webp",
                 "alt": "크리스마스 - 이미지"
             },
             {
@@ -56,6 +34,7 @@
                 "thumb": "\/gallery-images\/cristmas\/snow-6769948_thumb.webp",
                 "alt": "크리스마스 - 이미지"
             }
-        ]
+        ],
+        "note": "ㅁㄴㅇㄹ"
     }
 }

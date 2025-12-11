@@ -279,3 +279,56 @@ code {
   padding: 8px;
   resize: vertical;
 }
+
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.admin-modal {
+  background: #020617;
+  border-radius: 16px;
+  padding: 16px 20px;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.admin-event-block {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.admin-event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-event-body {
+  margin-top: 8px;
+}
+
+.admin-photo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-photo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-photo-controls {
+  display: flex;
+  gap: 4px;
+}

@@ -8,8 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $eventId  = trim($_POST['event_id'] ?? '');
 $title    = trim($_POST['title'] ?? '');
-$date     = trim($_POST['date'] ?? '');
-$location = trim($_POST['location'] ?? '');
+$note     = trim($_POST['note'] ?? ''); // 🔹 관리자 비공개 메모 (선택)
 
 if ($eventId === '' || $title === '' || $date === '') {
   json_fail('event_id, title, date는 필수입니다.');
@@ -102,9 +101,6 @@ function save_resized($srcPath, $destPath, $mime, $maxWidth)
     $ok = imagejpeg($dstImg, $destPath, 85);
   }
 
-  imagedestroy($srcImg);
-  imagedestroy($dstImg);
-
   return $ok;
 }
 
@@ -157,10 +153,14 @@ if (empty($photos)) {
 if (!isset($events[$eventId])) {
   $events[$eventId] = [
     'title'    => $title,
-    'date'     => $date,
-    'location' => $location ?: '울산 남구 공업탑 일대',
+    'note'     => $note,  // 🔹 비공개 메모
     'photos'   => [],
   ];
+} else {
+  // 이미 있는 이벤트에 note를 수정하고 싶으면:
+  if ($note !== '') {
+    $events[$eventId]['note'] = $note;
+  }
 }
 
 $events[$eventId]['photos'] = array_merge($events[$eventId]['photos'], $photos);
