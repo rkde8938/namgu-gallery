@@ -136,6 +136,7 @@ export default function App() {
 					{admin && (
 						<>
 							<AdminUploadForm onUploaded={(newEvents) => setEvents(newEvents)} />
+							<AdminEventManager events={events} setEvents={setEvents} />
 
 							{/* 선택사항: 관리자 페이지에서도 행사 목록 보여주기 */}
 							<section className="event-list" style={{ marginTop: '24px' }}>
@@ -154,9 +155,6 @@ export default function App() {
 											</div>
 											<div className="event-card-body">
 												<h2 className="event-card-title">{ev.title}</h2>
-												<p className="event-card-meta">
-													{ev.date} · {ev.location}
-												</p>
 											</div>
 										</a>
 									);
@@ -198,9 +196,6 @@ export default function App() {
 								</div>
 								<div className="event-card-body">
 									<h2 className="event-card-title">{ev.title}</h2>
-									<p className="event-card-meta">
-										{ev.date} · {ev.location}
-									</p>
 								</div>
 							</a>
 						);
@@ -235,9 +230,6 @@ export default function App() {
 			<header className="header">
 				<div className="header-text">
 					<h1 className="title">{eventData.title}</h1>
-					<p className="meta">
-						{eventData.date} · {eventData.location}
-					</p>
 				</div>
 			</header>
 
@@ -366,8 +358,6 @@ function LoginPanel({ admin, setAdmin }) {
 function AdminUploadForm({ onUploaded }) {
 	const [eventId, setEventId] = useState('');
 	const [title, setTitle] = useState('');
-	const [date, setDate] = useState('');
-	const [location, setLocation] = useState('울산 남구 공업탑 일대');
 	const [files, setFiles] = useState([]);
 	const [busy, setBusy] = useState(false);
 	const [msg, setMsg] = useState('');
@@ -396,8 +386,6 @@ function AdminUploadForm({ onUploaded }) {
 			const formData = new FormData();
 			formData.append('event_id', eventId.trim());
 			formData.append('title', title.trim());
-			formData.append('date', date.trim());
-			formData.append('location', location.trim());
 
 			files.forEach((file) => {
 				formData.append('photos[]', file);
@@ -457,25 +445,6 @@ function AdminUploadForm({ onUploaded }) {
 
 				<div className="admin-row">
 					<label>
-						날짜
-						<input type="text" placeholder="예: 2025-05-03" value={date} onChange={(e) => setDate(e.target.value)} />
-					</label>
-				</div>
-
-				<div className="admin-row">
-					<label>
-						장소
-						<input
-							type="text"
-							placeholder="예: 울산 남구 공업탑 일대"
-							value={location}
-							onChange={(e) => setLocation(e.target.value)}
-						/>
-					</label>
-				</div>
-
-				<div className="admin-row">
-					<label>
 						이미지 파일 (여러 장 선택 가능)
 						<input type="file" accept="image/*" multiple onChange={handleFileChange} />
 					</label>
@@ -488,6 +457,149 @@ function AdminUploadForm({ onUploaded }) {
 					{busy ? '업로드 중...' : '행사 업로드'}
 				</button>
 			</form>
+		</section>
+	);
+}
+
+function AdminEventManager({ events, setEvents }) {
+	const [noteDrafts, setNoteDrafts] = useState({});
+
+	const entries = Object.entries(events || {});
+
+	// 메모 초깃값 세팅
+	useEffect(() => {
+		const initial = {};
+		for (const [id, ev] of entries) {
+			initial[id] = ev.note || '';
+		}
+		setNoteDrafts(initial);
+	}, [events]);
+
+	// 운영용/로컬용 QR 베이스
+	const QR_BASE_PROD = 'https://ulsan-namgu.com/gallery';
+	const QR_BASE_DEV = 'http://localhost:5173';
+	const qrBaseUrl = import.meta.env.DEV ? QR_BASE_DEV : QR_BASE_PROD;
+
+	async function handleDeleteEvent(eventId) {
+		if (!window.confirm('정말 이 행사를 모두 삭제할까요? (이미지도 함께 삭제됩니다)')) return;
+
+		try {
+			const data = await fetchJson('/api/gallery/delete_event.php', {
+				method: 'POST',
+				body: new URLSearchParams({ event_id: eventId }),
+			});
+			if (!data.ok) throw new Error(data.error || '삭제 실패');
+			setEvents(data.events || {});
+		} catch (err) {
+			alert(err.message);
+		}
+	}
+
+	async function handleDeletePhoto(eventId, index) {
+		if (!window.confirm('이 이미지를 삭제할까요?')) return;
+
+		try {
+			const data = await fetchJson('/api/gallery/delete_photo.php', {
+				method: 'POST',
+				body: new URLSearchParams({
+					event_id: eventId,
+					photo_index: String(index),
+				}),
+			});
+			if (!data.ok) throw new Error(data.error || '이미지 삭제 실패');
+			setEvents(data.events || {});
+		} catch (err) {
+			alert(err.message);
+		}
+	}
+
+	async function handleSaveNote(eventId) {
+		const note = noteDrafts[eventId] ?? '';
+
+		try {
+			const data = await fetchJson('/api/gallery/update_event_meta.php', {
+				method: 'POST',
+				body: new URLSearchParams({
+					event_id: eventId,
+					note,
+				}),
+			});
+			if (!data.ok) throw new Error(data.error || '메모 저장 실패');
+			setEvents(data.events || {});
+		} catch (err) {
+			alert(err.message);
+		}
+	}
+
+	if (entries.length === 0) {
+		return (
+			<section className="admin-upload" style={{ marginTop: '24px' }}>
+				<h2 className="admin-title">이벤트 관리</h2>
+				<p className="admin-desc">등록된 행사가 없습니다.</p>
+			</section>
+		);
+	}
+
+	return (
+		<section className="admin-upload" style={{ marginTop: '24px' }}>
+			<h2 className="admin-title">이벤트 관리</h2>
+			<p className="admin-desc">행사별로 메모를 남기고, 이미지/행사 삭제 및 QR 링크를 확인할 수 있습니다.</p>
+
+			{entries.map(([id, ev]) => {
+				const qrUrl = `${qrBaseUrl}/?event=${encodeURIComponent(id)}`;
+
+				return (
+					<div key={id} className="admin-event-block">
+						<div className="admin-event-header">
+							<div>
+								<strong>{ev.title}</strong>{' '}
+							</div>
+							<button type="button" className="admin-submit" onClick={() => handleDeleteEvent(id)}>
+								행사 전체 삭제
+							</button>
+						</div>
+
+						<p className="admin-desc">
+							QR 링크: <code>{qrUrl}</code>
+						</p>
+
+						<div className="admin-row">
+							<label style={{ width: '100%' }}>
+								비공개 메모
+								<textarea
+									rows={2}
+									value={noteDrafts[id] ?? ''}
+									onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [id]: e.target.value }))}
+								/>
+							</label>
+						</div>
+						<button type="button" className="admin-submit" onClick={() => handleSaveNote(id)}>
+							메모 저장
+						</button>
+
+						<div className="admin-photo-list" style={{ marginTop: '12px' }}>
+							{(ev.photos || []).map((photo, index) => (
+								<div key={photo.full || photo.thumb || index} className="admin-photo-item">
+									<img
+										src={photo.thumb || photo.full}
+										alt={photo.alt}
+										style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }}
+									/>
+									<button
+										type="button"
+										onClick={() => handleDeletePhoto(id, index)}
+										className="admin-submit"
+										style={{ marginLeft: 8 }}
+									>
+										이미지 삭제
+									</button>
+								</div>
+							))}
+							{(!ev.photos || ev.photos.length === 0) && <p className="admin-desc">등록된 이미지가 없습니다.</p>}
+						</div>
+					</div>
+				);
+			})}
 		</section>
 	);
 }
