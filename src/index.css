@@ -194,3 +194,88 @@ code {
 .link-back:hover {
   text-decoration: underline;
 }
+
+/* ==== 관리자 업로드 폼 ==== */
+
+.admin-upload {
+  margin-top: 32px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.admin-title {
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+.admin-desc {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0 0 12px;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.admin-row input[type="text"],
+.admin-row input[type="file"] {
+  border-radius: 6px;
+  border: 1px solid #374151;
+  padding: 6px 8px;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 0.8rem;
+}
+
+.admin-files {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+.admin-submit {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: none;
+  background: #2563eb;
+  color: #f9fafb;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admin-submit:hover {
+  background: #1d4ed8;
+}
+
+.admin-code-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-code-block textarea {
+  width: 100%;
+  min-height: 160px;
+  border-radius: 8px;
+  border: 1px solid #4b5563;
+  background: #020617;
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.75rem;
+  padding: 8px;
+  resize: vertical;
+}

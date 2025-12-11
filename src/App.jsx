@@ -47,6 +47,8 @@ export default function App() {
 	const eventEntries = Object.entries(events || {});
 	const eventData = eventId ? events[eventId] : null;
 
+	const isAdminRoute = window.location.pathname.includes('/admin');
+
 	// 이벤트 목록 불러오기
 	useEffect(() => {
 		async function loadEvents() {
@@ -114,6 +116,59 @@ export default function App() {
 		);
 	}
 
+	// 0) 관리자 라우트(/admin 또는 /gallery/admin)일 때
+	if (isAdminRoute) {
+		return (
+			<div className="page">
+				<header className="header">
+					<h1 className="title">공업탑 행사 갤러리 · 관리자</h1>
+					<p className="meta">행사 업로드 및 관리를 위한 페이지입니다.</p>
+					<p className="notice">
+						<a href="/" className="link-back">
+							← 일반 목록으로 돌아가기
+						</a>
+					</p>
+				</header>
+
+				<main>
+					<LoginPanel admin={admin} setAdmin={setAdmin} />
+
+					{admin && (
+						<>
+							<AdminUploadForm onUploaded={(newEvents) => setEvents(newEvents)} />
+
+							{/* 선택사항: 관리자 페이지에서도 행사 목록 보여주기 */}
+							<section className="event-list" style={{ marginTop: '24px' }}>
+								{eventEntries.map(([id, ev]) => {
+									const firstPhoto = ev.photos?.[0];
+									const thumbSrc = firstPhoto ? firstPhoto.thumb || firstPhoto.full : null;
+
+									return (
+										<a key={id} href={`/?event=${id}`} className="event-card">
+											<div className="event-card-thumb">
+												{thumbSrc ? (
+													<img src={thumbSrc} alt={firstPhoto?.alt || ev.title} loading="lazy" decoding="async" />
+												) : (
+													<div className="event-card-thumb-fallback">No Image</div>
+												)}
+											</div>
+											<div className="event-card-body">
+												<h2 className="event-card-title">{ev.title}</h2>
+												<p className="event-card-meta">
+													{ev.date} · {ev.location}
+												</p>
+											</div>
+										</a>
+									);
+								})}
+							</section>
+						</>
+					)}
+				</main>
+			</div>
+		);
+	}
+
 	/* 1) event 파라미터가 없는 경우 → 행사 목록 화면 */
 	if (!eventId) {
 		return (
@@ -151,10 +206,6 @@ export default function App() {
 						);
 					})}
 				</main>
-
-				<LoginPanel admin={admin} setAdmin={setAdmin} />
-
-				{admin && <AdminUploadForm onUploaded={(newEvents) => setEvents(newEvents)} />}
 			</div>
 		);
 	}
