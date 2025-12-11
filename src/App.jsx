@@ -59,6 +59,8 @@ function App() {
 						);
 					})}
 				</main>
+
+				<AdminUploadForm />
 			</div>
 		);
 	}
@@ -120,6 +122,161 @@ function App() {
 			/>
 		</div>
 	);
+}
+
+// 리스트에서 새 행사(게시글) 정보 입력 → galleryData용 코드 자동 생성용 폼
+function AdminUploadForm() {
+  const [eventId, setEventId] = useState("");
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [location, setLocation] = useState("울산 남구 공업탑 일대");
+  const [files, setFiles] = useState([]);
+  const [code, setCode] = useState("");
+
+  const handleFileChange = (e) => {
+    const fileList = Array.from(e.target.files || []);
+    setFiles(fileList);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!eventId.trim()) {
+      alert("event ID를 입력해 주세요. (예: namgu2025_festival)");
+      return;
+    }
+    if (!title.trim()) {
+      alert("행사 제목을 입력해 주세요.");
+      return;
+    }
+    if (!date.trim()) {
+      alert("행사 날짜를 입력해 주세요. (예: 2025-05-03)");
+      return;
+    }
+    if (!files.length) {
+      alert("이미지를 한 장 이상 선택해 주세요.");
+      return;
+    }
+
+    // 파일 이름 기준으로 full/thumb 경로 생성
+    // (sharp 스크립트로 _full.webp / _thumb.webp 만들어 쓴다는 전제)
+    const eventKey = eventId.trim();
+    const photos = files.map((file) => {
+      const originalName = file.name; // 예: candles-8454262.jpg
+      const base = originalName.replace(/\.[^.]+$/, ""); // 확장자 제거
+      return {
+        full: `/gallery-images/${eventKey}/${base}_full.webp`,
+        thumb: `/gallery-images/${eventKey}/${base}_thumb.webp`,
+        alt: `${title} - 이미지`,
+      };
+    });
+
+    const snippet = `
+  ${eventKey}: {
+    title: "${title}",
+    date: "${date}",
+    location: "${location}",
+    photos: ${JSON.stringify(photos, null, 6)}
+  },`;
+
+    setCode(snippet.trim());
+  };
+
+  return (
+    <section className="admin-upload">
+      <h2 className="admin-title">[관리자] 새 행사 업로드 도우미</h2>
+      <p className="admin-desc">
+        event ID, 제목, 날짜, 위치, 이미지 파일을 선택하면
+        <br />
+        <code>galleryData.js</code>에 붙여 넣을 수 있는 코드가 자동으로 생성됩니다.
+        <br />
+        (실제 파일 업로드는 현재는 FTP나 서버에서 직접 처리)
+      </p>
+
+      <form className="admin-form" onSubmit={handleSubmit}>
+        <div className="admin-row">
+          <label>
+            event ID
+            <input
+              type="text"
+              placeholder="예: namgu2025_festival"
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="admin-row">
+          <label>
+            행사 제목
+            <input
+              type="text"
+              placeholder="예: 공업탑 거리 축제 2025"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="admin-row">
+          <label>
+            날짜
+            <input
+              type="text"
+              placeholder="예: 2025-05-03"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="admin-row">
+          <label>
+            장소
+            <input
+              type="text"
+              placeholder="예: 울산 남구 공업탑 일대"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="admin-row">
+          <label>
+            이미지 파일 (여러 장 선택 가능)
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileChange}
+            />
+          </label>
+          {files.length > 0 && (
+            <p className="admin-files">
+              선택된 파일:{" "}
+              {files.map((f) => f.name).join(", ")}
+            </p>
+          )}
+        </div>
+
+        <button type="submit" className="admin-submit">
+          코드 생성하기
+        </button>
+      </form>
+
+      {code && (
+        <div className="admin-code-block">
+          <p>아래 코드를 <code>galleryData.js</code>의 EVENTS 안에 붙여 넣으세요.</p>
+          <textarea
+            readOnly
+            value={code}
+            onFocus={(e) => e.target.select()}
+          />
+        </div>
+      )}
+    </section>
+  );
 }
 
 export default App;
