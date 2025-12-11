@@ -374,8 +374,8 @@ function AdminUploadForm({ onUploaded }) {
 		e.preventDefault();
 		setMsg('');
 
-		if (!eventId.trim() || !title.trim() || !date.trim()) {
-			setMsg('event ID, 제목, 날짜는 필수입니다.');
+		if (!eventId.trim() || !title.trim()) {
+			setMsg('event ID와 제목은 필수입니다.');
 			return;
 		}
 		if (files.length === 0) {
@@ -580,23 +580,76 @@ function AdminEventManager({ events, setEvents }) {
 	const [uploadFiles, setUploadFiles] = useState({});
 	const [activeEventId, setActiveEventId] = useState(null);
 
-	const entries = Object.entries(events || {});
+	// 사진 순서 draft: { [eventId]: [0,1,2,...] }
+	const [photoOrderDrafts, setPhotoOrderDrafts] = useState({});
+	// 저장 안 된 변경 여부: { [eventId]: true/false }
+	const [dirtyEvents, setDirtyEvents] = useState({});
+	// 드래그 상태
+	const [dragInfo, setDragInfo] = useState({ eventId: null, index: null });
 
-	// 메모 초깃값 동기화
-	useEffect(() => {
-		const initial = {};
-		for (const [id, ev] of entries) {
-			initial[id] = ev.note || '';
-		}
-		setNoteDrafts(initial);
-	}, [events]);
+	const entries = Object.entries(events || {});
 
 	const QR_BASE_PROD = 'https://ulsan-namgu.com/gallery';
 	const QR_BASE_DEV = 'http://localhost:5173';
 	const qrBaseUrl = import.meta.env.DEV ? QR_BASE_DEV : QR_BASE_PROD;
 
+	// 편집 모드 진입할 때 draft 초기화
+	function openEditor(eventId) {
+		const ev = events[eventId];
+		if (!ev) return;
+
+		const basePhotos = ev.photos || [];
+		const initialOrder = basePhotos.map((_, idx) => idx);
+
+		setNoteDrafts((prev) => ({
+			...prev,
+			[eventId]: ev.note || '',
+		}));
+
+		setPhotoOrderDrafts((prev) => ({
+			...prev,
+			[eventId]: initialOrder,
+		}));
+
+		setDirtyEvents((prev) => ({
+			...prev,
+			[eventId]: false,
+		}));
+
+		setActiveEventId(eventId);
+	}
+
+	// 편집 패널 열고 닫기 + 저장 안 된 변경 경고
 	function toggleActive(id) {
-		setActiveEventId((prev) => (prev === id ? null : id));
+		if (activeEventId === id) {
+			// 닫으려는 경우
+			if (dirtyEvents[id]) {
+				const ok = window.confirm('저장하지 않은 변경사항이 있습니다. 그래도 닫을까요?');
+				if (!ok) return;
+			}
+			setActiveEventId(null);
+			return;
+		}
+
+		// 다른 이벤트로 넘어갈 때, 현재 열린 것에 변경사항이 있으면 경고
+		if (activeEventId && dirtyEvents[activeEventId]) {
+			const ok = window.confirm('현재 편집 중인 내용이 저장되지 않았습니다. 계속할까요?');
+			if (!ok) return;
+		}
+
+		openEditor(id);
+	}
+
+	// 메모 입력 → draft만 변경 + dirty 표시
+	function handleNoteChange(eventId, value) {
+		setNoteDrafts((prev) => ({
+			...prev,
+			[eventId]: value,
+		}));
+		setDirtyEvents((prev) => ({
+			...prev,
+			[eventId]: true,
+		}));
 	}
 
 	async function handleDeleteEvent(eventId) {
@@ -614,7 +667,8 @@ function AdminEventManager({ events, setEvents }) {
 		}
 	}
 
-	async function handleDeletePhoto(eventId, index) {
+	// 이미지 삭제는 즉시 서버 반영
+	async function handleDeletePhoto(eventId, originalIndex) {
 		if (!window.confirm('이 이미지를 삭제할까요?')) return;
 
 		try {
@@ -622,29 +676,25 @@ function AdminEventManager({ events, setEvents }) {
 				method: 'POST',
 				body: new URLSearchParams({
 					event_id: eventId,
-					photo_index: String(index),
+					photo_index: String(originalIndex),
 				}),
 			});
 			if (!data.ok) throw new Error(data.error || '이미지 삭제 실패');
-			setEvents(data.events || {});
-		} catch (err) {
-			alert(err.message);
-		}
-	}
 
-	async function handleSaveNote(eventId) {
-		const note = noteDrafts[eventId] ?? '';
+			const newEvents = data.events || {};
+			setEvents(newEvents);
 
-		try {
-			const data = await fetchJson('/api/gallery/update_event_meta.php', {
-				method: 'POST',
-				body: new URLSearchParams({
-					event_id: eventId,
-					note,
-				}),
-			});
-			if (!data.ok) throw new Error(data.error || '메모 저장 실패');
-			setEvents(data.events || {});
+			// 삭제 후 순서 draft를 현재 사진 개수 기준으로 재초기화
+			const newPhotos = newEvents[eventId]?.photos || [];
+			const newOrder = newPhotos.map((_, idx) => idx);
+			setPhotoOrderDrafts((prev) => ({
+				...prev,
+				[eventId]: newOrder,
+			}));
+			setDirtyEvents((prev) => ({
+				...prev,
+				[eventId]: false,
+			}));
 		} catch (err) {
 			alert(err.message);
 		}
@@ -658,12 +708,16 @@ function AdminEventManager({ events, setEvents }) {
 		}));
 	}
 
+	// 이미지 추가 업로드는 즉시 서버 반영
 	async function handleAddPhotos(eventId, ev) {
 		const files = uploadFiles[eventId] || [];
 		if (files.length === 0) {
 			alert('추가할 이미지를 선택해 주세요.');
 			return;
 		}
+
+		const oldPhotos = events[eventId]?.photos || [];
+		const oldLen = oldPhotos.length;
 
 		try {
 			const formData = new FormData();
@@ -681,59 +735,165 @@ function AdminEventManager({ events, setEvents }) {
 
 			if (!data.ok) throw new Error(data.error || '이미지 추가 실패');
 
-			setEvents(data.events || {});
+			const newEvents = data.events || {};
+			setEvents(newEvents);
 			setUploadFiles((prev) => ({
 				...prev,
 				[eventId]: [],
 			}));
+
+			// 새로 추가된 이미지 인덱스를 순서 draft에 붙여주기
+			const newPhotos = newEvents[eventId]?.photos || [];
+			const newLen = newPhotos.length;
+			if (newLen > oldLen) {
+				setPhotoOrderDrafts((prev) => {
+					const prevOrder = prev[eventId] || oldPhotos.map((_, idx) => idx);
+					const extended = [...prevOrder];
+					for (let i = oldLen; i < newLen; i++) {
+						extended.push(i);
+					}
+					return {
+						...prev,
+						[eventId]: extended,
+					};
+				});
+			}
+
 			alert('이미지 추가 완료!');
 		} catch (err) {
 			alert(err.message);
 		}
 	}
 
-	async function savePhotoOrder(eventId, photos) {
-		// 순서 저장 API 호출
-		const payload = new URLSearchParams();
-		payload.append('event_id', eventId);
-		payload.append('photos_json', JSON.stringify(photos));
-
-		const data = await fetchJson('/api/gallery/update_photo_order.php', {
-			method: 'POST',
-			body: payload,
-		});
-
-		if (!data.ok) throw new Error(data.error || '이미지 순서 저장 실패');
-		setEvents(data.events || {});
+	// 드래그 시작
+	function handleDragStart(eventId, index) {
+		setDragInfo({ eventId, index });
 	}
 
-	async function handleMovePhoto(eventId, index, direction) {
-		const ev = events[eventId];
-		if (!ev || !ev.photos) return;
+	// 드래그 중(드롭 허용 위해 preventDefault)
+	function handleDragOver(e, eventId, index) {
+		if (dragInfo.eventId !== eventId) return;
+		e.preventDefault();
+	}
 
-		const photos = [...ev.photos];
-		const newIndex = direction === 'up' ? index - 1 : index + 1;
-		if (newIndex < 0 || newIndex >= photos.length) return;
+	// 드래그 종료(밖에 드랍된 경우도 초기화)
+	function handleDragEnd() {
+		setDragInfo({ eventId: null, index: null });
+	}
 
-		// 스왑
-		const temp = photos[index];
-		photos[index] = photos[newIndex];
-		photos[newIndex] = temp;
+	// fromIndex → toIndex로 재배열
+	function reorderDraft(eventId, fromIndex, toIndex) {
+		setPhotoOrderDrafts((prev) => {
+			const basePhotos = events[eventId]?.photos || [];
+			const current = prev[eventId] || basePhotos.map((_, idx) => idx);
 
-		// 일단 UI에 반영
-		setEvents({
-			...events,
-			[eventId]: {
-				...ev,
-				photos,
-			},
+			if (fromIndex < 0 || fromIndex >= current.length || toIndex < 0 || toIndex >= current.length) {
+				return prev;
+			}
+
+			const arr = [...current];
+			const [moved] = arr.splice(fromIndex, 1);
+			arr.splice(toIndex, 0, moved);
+
+			return {
+				...prev,
+				[eventId]: arr,
+			};
 		});
 
+		setDirtyEvents((prev) => ({
+			...prev,
+			[eventId]: true,
+		}));
+	}
+
+	// 드랍 시 순서 변경
+	function handleDrop(eventId, toIndex) {
+		if (dragInfo.eventId !== eventId || dragInfo.index == null) return;
+		if (dragInfo.index === toIndex) return;
+		reorderDraft(eventId, dragInfo.index, toIndex);
+		setDragInfo({ eventId: null, index: null });
+	}
+
+	// draft를 서버에 저장 (순서 + 메모)
+	async function handleSave(eventId) {
+		const ev = events[eventId];
+		if (!ev) return;
+
+		const basePhotos = ev.photos || [];
+		const order = photoOrderDrafts[eventId] || basePhotos.map((_, idx) => idx);
+		const orderedPhotos = order.map((idx) => basePhotos[idx]).filter(Boolean);
+		const note = noteDrafts[eventId] ?? '';
+
 		try {
-			await savePhotoOrder(eventId, photos);
+			// 1) 사진 순서 저장
+			const orderPayload = new URLSearchParams();
+			orderPayload.append('event_id', eventId);
+			orderPayload.append('photos_json', JSON.stringify(orderedPhotos));
+
+			const orderRes = await fetchJson('/api/gallery/update_photo_order.php', {
+				method: 'POST',
+				body: orderPayload,
+			});
+			if (!orderRes.ok) throw new Error(orderRes.error || '이미지 순서 저장 실패');
+
+			// 2) 메모 저장
+			const metaPayload = new URLSearchParams();
+			metaPayload.append('event_id', eventId);
+			metaPayload.append('note', note);
+
+			const metaRes = await fetchJson('/api/gallery/update_event_meta.php', {
+				method: 'POST',
+				body: metaPayload,
+			});
+			if (!metaRes.ok) throw new Error(metaRes.error || '메모 저장 실패');
+
+			const newEvents = metaRes.events || orderRes.events || events;
+			setEvents(newEvents);
+
+			// 저장 후 draft를 현재 상태 기준으로 다시 초기화
+			const newPhotos = newEvents[eventId]?.photos || [];
+			const newOrder = newPhotos.map((_, idx) => idx);
+
+			setPhotoOrderDrafts((prev) => ({
+				...prev,
+				[eventId]: newOrder,
+			}));
+			setNoteDrafts((prev) => ({
+				...prev,
+				[eventId]: newEvents[eventId]?.note || '',
+			}));
+			setDirtyEvents((prev) => ({
+				...prev,
+				[eventId]: false,
+			}));
+
+			alert('저장되었습니다.');
 		} catch (err) {
 			alert(err.message);
 		}
+	}
+
+	// 변경 취소 → 서버 상태 기준으로 draft 재설정
+	function handleReset(eventId) {
+		const ev = events[eventId];
+		if (!ev) return;
+
+		const basePhotos = ev.photos || [];
+		const initialOrder = basePhotos.map((_, idx) => idx);
+
+		setPhotoOrderDrafts((prev) => ({
+			...prev,
+			[eventId]: initialOrder,
+		}));
+		setNoteDrafts((prev) => ({
+			...prev,
+			[eventId]: ev.note || '',
+		}));
+		setDirtyEvents((prev) => ({
+			...prev,
+			[eventId]: false,
+		}));
 	}
 
 	if (entries.length === 0) {
@@ -750,12 +910,18 @@ function AdminEventManager({ events, setEvents }) {
 			<h2 className="admin-title">이벤트 관리</h2>
 			<p className="admin-desc">
 				행사를 클릭하면 편집 모드로 열립니다. 메모, 이미지 추가/삭제, 순서 변경을 할 수 있습니다.
+				<br />
+				이미지 순서는 드래그 앤 드랍으로 변경하고, <code>변경 사항 저장</code> 버튼을 눌러야 서버에 반영됩니다.
 			</p>
 
 			{entries.map(([id, ev]) => {
 				const qrUrl = `${qrBaseUrl}/?event=${encodeURIComponent(id)}`;
 				const isActive = activeEventId === id;
 				const files = uploadFiles[id] || [];
+
+				const basePhotos = ev.photos || [];
+				const order = photoOrderDrafts[id] || basePhotos.map((_, idx) => idx);
+				const orderedPhotos = order.map((idx) => basePhotos[idx]).filter(Boolean);
 
 				return (
 					<div key={id} className="admin-event-block">
@@ -781,19 +947,17 @@ function AdminEventManager({ events, setEvents }) {
 									QR 링크: <code>{qrUrl}</code>
 								</p>
 
+								{/* 비공개 메모 */}
 								<div className="admin-row">
 									<label style={{ width: '100%' }}>
 										비공개 메모
 										<textarea
 											rows={2}
 											value={noteDrafts[id] ?? ''}
-											onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [id]: e.target.value }))}
+											onChange={(e) => handleNoteChange(id, e.target.value)}
 										/>
 									</label>
 								</div>
-								<button type="button" className="admin-submit" onClick={() => handleSaveNote(id)}>
-									메모 저장
-								</button>
 
 								{/* 이미지 추가 업로드 */}
 								<div className="admin-row" style={{ marginTop: 12 }}>
@@ -809,45 +973,81 @@ function AdminEventManager({ events, setEvents }) {
 									</button>
 								</div>
 
-								{/* 이미지 목록 + 순서 조정 + 삭제 */}
+								{/* 이미지 목록 + 드래그 앤 드랍 순서 조정 + 삭제 */}
 								<div className="admin-photo-list" style={{ marginTop: 12 }}>
-									{(ev.photos || []).map((photo, index) => (
-										<div key={photo.full || photo.thumb || index} className="admin-photo-item">
-											<img
-												src={photo.thumb || photo.full}
-												alt={photo.alt}
-												style={{
-													width: 80,
-													height: 80,
-													objectFit: 'cover',
-													borderRadius: 6,
-													flexShrink: 0,
-												}}
-											/>
-											<div className="admin-photo-controls">
-												<button
-													type="button"
-													className="admin-submit"
-													disabled={index === 0}
-													onClick={() => handleMovePhoto(id, index, 'up')}
-												>
-													↑
-												</button>
-												<button
-													type="button"
-													className="admin-submit"
-													disabled={index === (ev.photos || []).length - 1}
-													onClick={() => handleMovePhoto(id, index, 'down')}
-												>
-													↓
-												</button>
-												<button type="button" className="admin-submit" onClick={() => handleDeletePhoto(id, index)}>
-													삭제
-												</button>
+									{orderedPhotos.map((photo, index) => {
+										const originalIndex = order[index]; // 서버 기준 인덱스
+
+										const isDragging = dragInfo.eventId === id && dragInfo.index === index;
+
+										return (
+											<div
+												key={photo.full || photo.thumb || index}
+												className={'admin-photo-item' + (isDragging ? ' admin-photo-item--dragging' : '')}
+												draggable
+												onDragStart={() => handleDragStart(id, index)}
+												onDragOver={(e) => handleDragOver(e, id, index)}
+												onDrop={() => handleDrop(id, index)}
+												onDragEnd={handleDragEnd}
+											>
+												<div className="admin-photo-thumb-wrap">
+													<img
+														src={photo.thumb || photo.full}
+														alt={photo.alt}
+														style={{
+															width: 80,
+															height: 80,
+															objectFit: 'cover',
+															borderRadius: 6,
+															flexShrink: 0,
+														}}
+													/>
+												</div>
+												<div className="admin-photo-main">
+													<div className="admin-photo-row">
+														<span className="admin-photo-handle">⋮⋮ 드래그로 순서 변경</span>
+														<button
+															type="button"
+															className="admin-submit"
+															onClick={() => handleDeletePhoto(id, originalIndex)}
+														>
+															삭제
+														</button>
+													</div>
+													{photo.alt && <p className="admin-photo-alt">{photo.alt}</p>}
+												</div>
 											</div>
-										</div>
-									))}
-									{(!ev.photos || ev.photos.length === 0) && <p className="admin-desc">등록된 이미지가 없습니다.</p>}
+										);
+									})}
+									{orderedPhotos.length === 0 && <p className="admin-desc">등록된 이미지가 없습니다.</p>}
+								</div>
+
+								{/* 저장 / 취소 버튼 */}
+								<div
+									className="admin-row"
+									style={{
+										marginTop: 12,
+										display: 'flex',
+										gap: 8,
+										justifyContent: 'flex-end',
+									}}
+								>
+									<button
+										type="button"
+										className="admin-submit"
+										disabled={!dirtyEvents[id]}
+										onClick={() => handleReset(id)}
+									>
+										변경 취소
+									</button>
+									<button
+										type="button"
+										className="admin-submit"
+										disabled={!dirtyEvents[id]}
+										onClick={() => handleSave(id)}
+									>
+										변경 사항 저장
+									</button>
 								</div>
 							</div>
 						)}
@@ -857,3 +1057,4 @@ function AdminEventManager({ events, setEvents }) {
 		</section>
 	);
 }
+
