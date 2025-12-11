@@ -20,15 +20,15 @@ export const EVENTS = {
         alt: "체험 부스에서 활동 중인 아이들"
       },
       {
-        src: "/gallery-images/namgu2025_festival/candles-8454262.jpg",
+        src: "/gallery-images/namgu2025_festival/frost-9983255.jpg",
         alt: "공업탑 앞 메인 무대 모습"
       },
       {
-        src: "/gallery-images/namgu2025_festival/christmas-5861895.jpg",
+        src: "/gallery-images/namgu2025_festival/snow-6769948.jpg",
         alt: "거리에서 공연을 즐기는 시민들"
       },
       {
-        src: "/gallery-images/namgu2025_festival/christmas-background-1869989.jpg",
+        src: "/gallery-images/namgu2025_festival/winter-9748652.jpg",
         alt: "체험 부스에서 활동 중인 아이들"
       }
     ]

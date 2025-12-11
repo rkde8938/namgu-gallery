@@ -108,6 +108,11 @@ function App() {
 				close={() => setOpenIndex(-1)}
 				slides={slides}
 				plugins={[Fullscreen]}
+				controller={{
+					closeOnBackdropClick: true,
+					closeOnPullDown: true,
+					closeOnPullUp: true,
+				}}
 			/>
 		</div>
 	);

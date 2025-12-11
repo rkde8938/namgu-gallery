@@ -74,6 +74,26 @@ body {
   background: transparent;
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+/* 썸네일 위에 살짝 비치는 하이라이트 레이어 */
+.thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center,
+      rgba(255, 255, 255, 0.18),
+      rgba(15, 23, 42, 0.0));
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.thumb:hover::after,
+.thumb:focus-visible::after {
+  opacity: 1;
 }
 
 .thumb-img {
@@ -81,6 +101,13 @@ body {
   height: 100%;
   display: block;
   object-fit: cover;
+  transition: transform 0.2s ease-out, filter 0.2s ease-out;
+}
+
+.thumb:hover .thumb-img,
+.thumb:focus-visible .thumb-img {
+  transform: scale(1.06);
+  filter: brightness(1.08);
 }
 
 /* code 태그 살짝만 스타일 */
