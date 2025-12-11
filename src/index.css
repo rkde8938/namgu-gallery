@@ -1,0 +1,90 @@
+/* 전체 레이아웃 기본값 */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #050509;
+  color: #f9fafb;
+}
+
+/* 페이지 래퍼 */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 24px;
+  box-sizing: border-box;
+}
+
+/* 상단 헤더 */
+.header {
+  padding: 8px 4px 12px;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.meta {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.notice {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+/* 갤러리 썸네일 그리드 – 모바일 기준 3열 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* 화면이 아주 좁으면 2열로 줄이기 */
+@media (max-width: 360px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 썸네일 버튼/이미지 스타일 */
+.thumb {
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+/* code 태그 살짝만 스타일 */
+code {
+  background: rgba(148, 163, 184, 0.2);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
