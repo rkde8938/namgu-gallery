@@ -13,36 +13,71 @@ function getEventIdFromUrl() {
 function App() {
 	const [openIndex, setOpenIndex] = useState(-1);
 
-	const { eventId, eventData } = useMemo(() => {
+	const { eventId, eventData, eventEntries } = useMemo(() => {
 		const id = getEventIdFromUrl();
+		const entries = Object.entries(EVENTS); // [ [id, data], ... ]
 		return {
 			eventId: id,
 			eventData: id ? EVENTS[id] : null,
+			eventEntries: entries,
 		};
 	}, []);
 
-	if (!eventData) {
+	/* 1) event 파라미터가 없는 경우 → 행사 목록 화면 */
+	if (!eventId) {
 		return (
 			<div className="page">
 				<header className="header">
 					<h1 className="title">공업탑 행사 갤러리</h1>
-					<p className="meta">
-						QR 코드로 접근했는데도 이 화면이 보이면,
-						<br />
-						잘못된 행사 코드이거나 아직 사진이 등록되지 않은 상태일 수 있어요.
-					</p>
+					<p className="meta">QR 코드 없이 접속한 경우, 아래에서 보고 싶은 행사를 선택하세요.</p>
+				</header>
+
+				<main className="event-list">
+					{eventEntries.map(([id, ev]) => {
+						const firstPhoto = ev.photos?.[0];
+						return (
+							<a key={id} href={`?event=${id}`} className="event-card">
+								<div className="event-card-thumb">
+									{firstPhoto ? (
+										<img src={firstPhoto.src} alt={firstPhoto.alt || ev.title} loading="lazy" />
+									) : (
+										<div className="event-card-thumb-fallback">No Image</div>
+									)}
+								</div>
+								<div className="event-card-body">
+									<h2 className="event-card-title">{ev.title}</h2>
+									<p className="event-card-meta">
+										{ev.date} · {ev.location}
+									</p>
+								</div>
+							</a>
+						);
+					})}
+				</main>
+			</div>
+		);
+	}
+
+	/* 2) event 파라미터는 있는데, 매칭되는 행사가 없는 경우 */
+	if (eventId && !eventData) {
+		return (
+			<div className="page">
+				<header className="header">
+					<h1 className="title">공업탑 행사 갤러리</h1>
+					<p className="meta">잘못된 행사 코드입니다. 주소를 다시 확인해 주세요.</p>
 				</header>
 				<main style={{ marginTop: '32px' }}>
 					<p className="notice">
-						주소에 <code>?event=namgu2025_festival</code> 와 같은
-						<br />
-						행사 코드가 포함되어야 합니다.
+						<a href="/" className="link-back">
+							행사 목록으로 돌아가기
+						</a>
 					</p>
 				</main>
 			</div>
 		);
 	}
 
+	/* 3) 정상적인 event 파라미터 → 해당 행사 갤러리 화면 */
 	const slides = eventData.photos.map((p) => ({
 		src: p.src,
 		alt: p.alt,

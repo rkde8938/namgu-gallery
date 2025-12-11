@@ -8,18 +8,29 @@ export const EVENTS = {
     location: "울산 남구 공업탑 일대",
     photos: [
       {
-        src: "/gallery-images/namgu2025_festival/01.webp",
+        src: "/gallery-images/namgu2025_festival/candles-8454262.jpg",
         alt: "공업탑 앞 메인 무대 모습"
       },
       {
-        src: "/gallery-images/namgu2025_festival/02.webp",
+        src: "/gallery-images/namgu2025_festival/christmas-5861895.jpg",
         alt: "거리에서 공연을 즐기는 시민들"
       },
       {
-        src: "/gallery-images/namgu2025_festival/03.webp",
+        src: "/gallery-images/namgu2025_festival/christmas-background-1869989.jpg",
+        alt: "체험 부스에서 활동 중인 아이들"
+      },
+      {
+        src: "/gallery-images/namgu2025_festival/candles-8454262.jpg",
+        alt: "공업탑 앞 메인 무대 모습"
+      },
+      {
+        src: "/gallery-images/namgu2025_festival/christmas-5861895.jpg",
+        alt: "거리에서 공연을 즐기는 시민들"
+      },
+      {
+        src: "/gallery-images/namgu2025_festival/christmas-background-1869989.jpg",
         alt: "체험 부스에서 활동 중인 아이들"
       }
-      // 필요하면 계속 추가
     ]
   },
 
