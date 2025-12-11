@@ -35,15 +35,20 @@ function App() {
 				<main className="event-list">
 					{eventEntries.map(([id, ev]) => {
 						const firstPhoto = ev.photos?.[0];
+
+						// 썸네일 우선, 없으면 full 사용
+						const thumbSrc = firstPhoto ? firstPhoto.thumb || firstPhoto.full : null;
+
 						return (
 							<a key={id} href={`?event=${id}`} className="event-card">
 								<div className="event-card-thumb">
-									{firstPhoto ? (
-										<img src={firstPhoto.src} alt={firstPhoto.alt || ev.title} loading="lazy" />
+									{thumbSrc ? (
+										<img src={thumbSrc} alt={firstPhoto.alt || ev.title} loading="lazy" decoding="async" />
 									) : (
 										<div className="event-card-thumb-fallback">No Image</div>
 									)}
 								</div>
+
 								<div className="event-card-body">
 									<h2 className="event-card-title">{ev.title}</h2>
 									<p className="event-card-meta">
