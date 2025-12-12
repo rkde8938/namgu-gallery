@@ -95,61 +95,75 @@ export default function App() {
 		  }))
 		: [];
 
+	// 🔹 1) 이벤트 로딩 중
 	if (eventsLoading) {
 		return (
 			<div className="page">
 				<header className="header">
 					<h1 className="title">공업탑 행사 갤러리</h1>
-					<p className="meta">행사 정보를 불러오는 중입니다…</p>
+					<p className="meta text-sm text-slate-300">행사 정보를 불러오는 중입니다…</p>
 				</header>
-			</div>
-		);
-	}
 
-	if (eventsError) {
-		return (
-			<div className="page">
-				<header className="header">
-					<h1 className="title">공업탑 행사 갤러리</h1>
-					<p className="meta">목록을 불러오는 중 오류가 발생했습니다.</p>
-				</header>
-				<main>
-					<p className="notice">{eventsError}</p>
+				<main className="flex-1 flex items-center justify-center">
+					<div className="rounded-lg border border-slate-700/60 bg-slate-900/40 px-4 py-3 text-sm text-slate-200">
+						로딩 중…
+					</div>
 				</main>
 			</div>
 		);
 	}
 
+	// 🔹 2) 이벤트 로딩 오류
+	if (eventsError) {
+		return (
+			<div className="page">
+				<header className="header">
+					<h1 className="title">공업탑 행사 갤러리</h1>
+					<p className="meta text-sm text-red-300">목록을 불러오는 중 오류가 발생했습니다.</p>
+				</header>
+
+				<main className="mt-4">
+					<div className="rounded-lg border border-red-700/70 bg-red-900/30 px-4 py-3 text-sm text-red-100">
+						{eventsError}
+					</div>
+				</main>
+			</div>
+		);
+	}
+
+	// 🔹 3) 관리자 페이지 (/admin 경로)
 	if (isAdminRoute) {
 		return (
 			<div className="page">
 				<header className="header">
-					<h1 className="title">공업탑 행사 갤러리 · 관리자</h1>
-					<p className="meta">행사를 업로드하고, 이미지/메모/QR 정보를 관리할 수 있습니다.</p>
-					<p className="notice">
-						<a href="/" className="link-back">
-							← 일반 갤러리로 돌아가기
-						</a>
-					</p>
+					<div className="flex items-start justify-between gap-3">
+						<div>
+							<h1 className="title">공업탑 행사 갤러리 · 관리자</h1>
+							<p className="meta text-xs md:text-sm">
+								행사를 업로드하고, 이미지 / 메모 / QR 링크를 관리할 수 있습니다.
+							</p>
+						</div>
+
+						<p className="notice text-xs md:text-sm">
+							<a href="/" className="link-back">
+								← 일반 갤러리로 돌아가기
+							</a>
+						</p>
+					</div>
 				</header>
 
-				<main>
+				<main className="admin-main mt-4 space-y-4">
+					{/* 상단: 로그인 카드 */}
 					<LoginPanel admin={admin} setAdmin={setAdmin} />
 
+					{/* 하단: 이벤트 관리 리스트 + 새 행사 모달 */}
 					{admin && (
 						<>
-							{/* 새 행사 추가 버튼 + 모달 */}
-							<section className="admin-upload">
-								<div className="admin-event-header">
-									<h2 className="admin-title">행사 추가</h2>
-									<button type="button" className="admin-submit" onClick={() => setShowNewEventModal(true)}>
-										새 행사 추가 모달 열기
-									</button>
-								</div>
-								<p className="admin-desc">새 행사를 만들려면 위 버튼을 눌러 모달에서 정보를 입력하세요.</p>
-							</section>
-
-							<AdminEventManager events={events} setEvents={setEvents} />
+							<AdminEventManager
+								events={events}
+								setEvents={setEvents}
+								onClickNewEvent={() => setShowNewEventModal(true)}
+							/>
 
 							{showNewEventModal && (
 								<AdminNewEventModal
@@ -167,15 +181,19 @@ export default function App() {
 		);
 	}
 
+	// 🔹 4) 메인 목록 화면 (event 파라미터 없음 + 일반 경로)
 	if (!eventId && !isAdminRoute) {
 		return (
 			<div className="page">
 				<header className="header">
-					<h1 className="title">공업탑 행사 갤러리</h1>
-					<div className="header-text">
-						<p className="meta">아래에서 행사를 선택해서 사진을 볼 수 있습니다.</p>
-						<p className="notice">
-							{/* 상대 경로 "admin" → /gallery/ 기준으로 /gallery/admin, dev에선 /admin */}
+					<div className="header-text flex items-start justify-between gap-3">
+						<div>
+							<h1 className="title">공업탑 행사 갤러리</h1>
+							<p className="meta text-xs md:text-sm text-slate-300">아래에서 행사를 선택해서 사진을 볼 수 있습니다.</p>
+						</div>
+
+						<p className="notice text-xs md:text-sm text-right">
+							{/* 상대 경로 "admin" → /gallery/ 기준 /gallery/admin, dev에선 /admin */}
 							<a href="admin" className="link-back">
 								관리자 페이지로 이동
 							</a>
@@ -183,7 +201,7 @@ export default function App() {
 					</div>
 				</header>
 
-				<main className="event-list">
+				<main className="event-list mt-3">
 					{eventEntries.map(([id, ev]) => {
 						const firstPhoto = ev.photos?.[0];
 						const thumbSrc = firstPhoto ? firstPhoto.thumb || firstPhoto.full : null;
@@ -192,11 +210,18 @@ export default function App() {
 							<a key={id} href={`?event=${id}`} className="event-card">
 								<div className="event-card-thumb">
 									{thumbSrc ? (
-										<img src={thumbSrc} alt={firstPhoto?.alt || ev.title} loading="lazy" decoding="async" />
+										<img
+											src={thumbSrc}
+											alt={firstPhoto?.alt || ev.title}
+											loading="lazy"
+											decoding="async"
+											className="w-full h-full object-cover"
+										/>
 									) : (
 										<div className="event-card-thumb-fallback">No Image</div>
 									)}
 								</div>
+
 								<div className="event-card-body">
 									<h2 className="event-card-title">{ev.title}</h2>
 								</div>
@@ -231,21 +256,33 @@ export default function App() {
 	return (
 		<div className="page">
 			<header className="header">
-				<div className="header-text">
-					<h1 className="title">{eventData.title}</h1>
+				<div className="header-text flex justify-between gap-3">
+					<div>
+						<h1 className="title">{eventData.title}</h1>
+						<p className="meta text-xs md:text-sm text-slate-300">사진 {eventData.photos?.length ?? 0}장</p>
+					</div>
+
+					{/* <a href="/" className="link-back text-xs md:text-sm">
+						← 행사 목록으로
+					</a> */}
 				</div>
 			</header>
 
-			<main className="grid">
+			<main className="grid mt-3">
 				{eventData.photos.map((photo, idx) => (
 					<button key={photo.full || photo.thumb || idx} className="thumb" onClick={() => setOpenIndex(idx)}>
-						<img
-							src={photo.thumb || photo.full}
-							alt={photo.alt}
-							loading="lazy"
-							decoding="async"
-							className="thumb-img"
-						/>
+						{/* 썸네일 안쪽 래퍼 + 오버레이 (다른 곳이랑 통일) */}
+						<div className="thumb-inner">
+							<img
+								src={photo.thumb || photo.full}
+								alt={photo.alt}
+								loading="lazy"
+								decoding="async"
+								className="thumb-img w-full h-full object-cover"
+							/>
+							{/* hover 시 살짝 하얀 오버레이 */}
+							<div className="thumb-hover" />
+						</div>
 					</button>
 				))}
 			</main>
@@ -258,8 +295,7 @@ export default function App() {
 				plugins={[Fullscreen]}
 				controller={{
 					closeOnBackdropClick: true, // 바깥 클릭 시 닫기
-					closeOnPullDown: true, // ⬇️ 끌어내리면 닫기 (이거 추가)
-					// 필요하면 closeOnPullUp: true 도 같이 줄 수 있음
+					closeOnPullDown: true, // 끌어내리면 닫기
 				}}
 			/>
 		</div>
@@ -312,47 +348,67 @@ function LoginPanel({ admin, setAdmin }) {
 	}
 
 	return (
-		<section className="admin-upload">
-			<h2 className="admin-title">관리자</h2>
+		<section className="admin-upload p-4 rounded-lg bg-slate-900/40 border border-slate-700/50">
+			<h2 className="admin-title mb-2 text-lg font-semibold text-white">관리자</h2>
+
+			{/* 로그인됨 */}
 			{admin ? (
-				<>
-					<p className="admin-desc">{admin.email} 로 로그인됨.</p>
-					<button className="admin-submit" type="button" onClick={handleLogout}>
+				<div className="space-y-3">
+					<p className="admin-desc text-slate-300 text-sm">
+						<span className="font-medium text-slate-100">{admin.email}</span> 로 로그인됨
+					</p>
+
+					<button className="admin-submit w-full sm:w-auto" type="button" onClick={handleLogout}>
 						로그아웃
 					</button>
-				</>
+				</div>
 			) : (
-				<>
-					<p className="admin-desc">행사 업로드를 하려면 관리자 로그인이 필요합니다.</p>
-					<form className="admin-form" onSubmit={handleLogin}>
-						<div className="admin-row">
-							<label>
-								이메일
+				/* 로그인 필요 */
+				<div className="space-y-4">
+					<p className="admin-desc text-sm text-slate-300">행사 업로드를 하려면 관리자 로그인이 필요합니다.</p>
+
+					<form className="admin-form flex flex-col gap-4" onSubmit={handleLogin}>
+						{/* 이메일 */}
+						<div className="admin-row flex flex-col">
+							<label className="flex flex-col gap-1 text-sm text-slate-100">
+								<span className="text-slate-200 text-xs font-medium">이메일</span>
 								<input
 									type="text"
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
 									placeholder="관리자 이메일"
+									className="admin-input"
 								/>
 							</label>
 						</div>
-						<div className="admin-row">
-							<label>
-								비밀번호
+
+						{/* 비밀번호 */}
+						<div className="admin-row flex flex-col">
+							<label className="flex flex-col gap-1 text-sm text-slate-100">
+								<span className="text-slate-200 text-xs font-medium">비밀번호</span>
 								<input
 									type="password"
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
 									placeholder="비밀번호"
+									className="admin-input"
 								/>
 							</label>
 						</div>
-						{error && <p className="admin-files">{error}</p>}
-						<button className="admin-submit" type="submit" disabled={busy}>
+
+						{/* 에러 메시지 */}
+						{error && (
+							<p className="admin-files text-red-300 text-xs bg-red-900/30 border border-red-700 px-3 py-2 rounded">
+								{error}
+							</p>
+						)}
+
+						{/* 로그인 버튼 */}
+						<button className="admin-submit w-full sm:w-auto" type="submit" disabled={busy}>
 							{busy ? '로그인 중...' : '로그인'}
 						</button>
 					</form>
-				</>
+				</div>
 			)}
 		</section>
 	);
@@ -413,52 +469,72 @@ function AdminUploadForm({ onUploaded }) {
 	};
 
 	return (
-		<section className="admin-upload">
-			<h2 className="admin-title">[관리자] 새 행사 업로드</h2>
-			<p className="admin-desc">
-				event ID, 행사 정보, 이미지를 선택하면
-				<br />
-				서버에 저장되고, 행사 목록에 즉시 반영됩니다.
-			</p>
+		<section className="admin-upload mt-4">
+			{/* 헤더 */}
+			<div className="flex items-center justify-between mb-3">
+				<div>
+					<h2 className="admin-title text-base font-semibold text-white">[관리자] 새 행사 업로드</h2>
+					<p className="admin-desc text-xs text-slate-300">
+						event ID, 행사 정보, 이미지를 선택하면 서버에 저장되고
+						<br />
+						행사 목록에 즉시 반영됩니다.
+					</p>
+				</div>
+			</div>
 
-			<form className="admin-form" onSubmit={handleSubmit}>
-				<div className="admin-row">
-					<label>
-						event ID
+			<form className="admin-form space-y-4" onSubmit={handleSubmit}>
+				{/* event ID + 제목 두 줄 */}
+				<div className="admin-row grid gap-3 sm:grid-cols-2">
+					<label className="flex flex-col gap-1 text-sm text-slate-100">
+						<span className="text-xs font-medium text-slate-200">event ID</span>
 						<input
 							type="text"
 							placeholder="예: namgu2025_festival"
 							value={eventId}
 							onChange={(e) => setEventId(e.target.value)}
+							className="admin-input"
 						/>
+						<span className="text-[11px] text-slate-400">
+							URL 및 QR 파라미터로 사용됩니다. 소문자/숫자/밑줄/하이픈 권장.
+						</span>
 					</label>
-				</div>
 
-				<div className="admin-row">
-					<label>
-						행사 제목
+					<label className="flex flex-col gap-1 text-sm text-slate-100">
+						<span className="text-xs font-medium text-slate-200">행사 제목</span>
 						<input
 							type="text"
 							placeholder="예: 공업탑 거리 축제 2025"
 							value={title}
 							onChange={(e) => setTitle(e.target.value)}
+							className="admin-input"
 						/>
 					</label>
 				</div>
 
-				<div className="admin-row">
-					<label>
-						이미지 파일 (여러 장 선택 가능)
-						<input type="file" accept="image/*" multiple onChange={handleFileChange} />
-					</label>
-					{files.length > 0 && <p className="admin-files">선택된 파일: {files.map((f) => f.name).join(', ')}</p>}
+				{/* 이미지 업로드 + 선택 파일 표시 */}
+				<div className="admin-row flex flex-col gap-2">
+					<div className="flex flex-col md:flex-row md:items-end gap-2 w-full">
+						<label className="flex-1 flex flex-col gap-1 text-sm text-slate-100">
+							<span className="text-xs font-medium text-slate-200">이미지 파일 (여러 장 선택 가능)</span>
+							<input type="file" accept="image/*" multiple onChange={handleFileChange} className="admin-input" />
+						</label>
+
+						<button type="submit" className="admin-submit md:self-stretch md:px-5" disabled={busy}>
+							{busy ? '업로드 중...' : '행사 업로드'}
+						</button>
+					</div>
+
+					{files.length > 0 && (
+						<p className="admin-files text-xs text-slate-300">선택된 파일: {files.map((f) => f.name).join(', ')}</p>
+					)}
 				</div>
 
-				{msg && <p className="admin-files">{msg}</p>}
-
-				<button type="submit" className="admin-submit" disabled={busy}>
-					{busy ? '업로드 중...' : '행사 업로드'}
-				</button>
+				{/* 메시지 */}
+				{msg && (
+					<p className="admin-files text-xs text-slate-200 bg-slate-800/70 border border-slate-600 rounded px-3 py-2">
+						{msg}
+					</p>
+				)}
 			</form>
 		</section>
 	);
@@ -521,52 +597,86 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 	};
 
 	return (
-		<div className="admin-modal-backdrop">
-			<div className="admin-modal">
-				<h2 className="admin-title">새 행사 추가</h2>
-				<p className="admin-desc">event ID와 제목, 이미지를 선택해서 새 행사를 등록합니다.</p>
+		<div className="admin-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+			<div className="admin-modal w-full max-w-lg rounded-xl bg-slate-900 border border-slate-700/70 shadow-2xl p-6">
+				{/* 헤더 */}
+				<div className="flex items-start justify-between gap-4 mb-4">
+					<div>
+						<h2 className="admin-title text-lg font-semibold text-white mb-1">새 행사 추가</h2>
+						<p className="admin-desc text-xs text-slate-300">
+							event ID와 제목, 이미지를 선택해서 새 행사를 등록합니다.
+						</p>
+					</div>
+					<button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-100 text-sm">
+						닫기 ✕
+					</button>
+				</div>
 
-				<form className="admin-form" onSubmit={handleSubmit}>
+				<form className="admin-form space-y-4" onSubmit={handleSubmit}>
+					{/* event ID */}
 					<div className="admin-row">
-						<label>
-							event ID
+						<label className="flex flex-col gap-1 text-sm text-slate-100 w-full">
+							<span className="text-xs font-medium text-slate-200">event ID</span>
 							<input
 								type="text"
 								placeholder="예: namgu2025_festival"
 								value={eventId}
 								onChange={(e) => setEventId(e.target.value)}
+								className="admin-input"
 							/>
+							<span className="text-[11px] text-slate-400">
+								URL 및 QR 파라미터로 사용됩니다. 소문자/숫자/밑줄/하이픈 권장.
+							</span>
 						</label>
 					</div>
 
+					{/* 행사 제목 */}
 					<div className="admin-row">
-						<label>
-							행사 제목
+						<label className="flex flex-col gap-1 text-sm text-slate-100 w-full">
+							<span className="text-xs font-medium text-slate-200">행사 제목</span>
 							<input
 								type="text"
 								placeholder="예: 공업탑 거리 축제 2025"
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
+								className="admin-input"
 							/>
 						</label>
 					</div>
 
+					{/* 이미지 업로드 */}
 					<div className="admin-row">
-						<label>
-							이미지 파일 (여러 장 선택 가능)
-							<input type="file" accept="image/*" multiple onChange={handleFileChange} />
-						</label>
-						{files.length > 0 && <p className="admin-files">선택된 파일: {files.map((f) => f.name).join(', ')}</p>}
+						<div className="w-full flex flex-col gap-2">
+							<label className="flex flex-col gap-1 text-sm text-slate-100">
+								<span className="text-xs font-medium text-slate-200">이미지 파일 (여러 장 선택 가능)</span>
+								<input type="file" accept="image/*" multiple onChange={handleFileChange} className="admin-input" />
+							</label>
+
+							{files.length > 0 && (
+								<p className="admin-files text-xs text-slate-300">선택된 파일: {files.map((f) => f.name).join(', ')}</p>
+							)}
+						</div>
 					</div>
 
-					{msg && <p className="admin-files">{msg}</p>}
+					{/* 메시지 */}
+					{msg && (
+						<p className="admin-files text-xs text-slate-200 bg-slate-800/70 border border-slate-600 rounded px-3 py-2">
+							{msg}
+						</p>
+					)}
 
-					<div className="admin-row" style={{ display: 'flex', gap: 8 }}>
+					{/* 버튼 영역 */}
+					<div className="flex justify-end gap-2 pt-2">
+						<button
+							type="button"
+							className="admin-submit bg-slate-700/70 hover:bg-slate-600"
+							onClick={onClose}
+							disabled={busy}
+						>
+							닫기
+						</button>
 						<button type="submit" className="admin-submit" disabled={busy}>
 							{busy ? '업로드 중...' : '등록'}
-						</button>
-						<button type="button" className="admin-submit" onClick={onClose}>
-							닫기
 						</button>
 					</div>
 				</form>
@@ -575,7 +685,8 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 	);
 }
 
-function AdminEventManager({ events, setEvents }) {
+
+function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const [noteDrafts, setNoteDrafts] = useState({});
 	const [uploadFiles, setUploadFiles] = useState({});
 	const [activeEventId, setActiveEventId] = useState(null);
@@ -898,21 +1009,45 @@ function AdminEventManager({ events, setEvents }) {
 
 	if (entries.length === 0) {
 		return (
-			<section className="admin-upload" style={{ marginTop: '24px' }}>
-				<h2 className="admin-title">이벤트 관리</h2>
-				<p className="admin-desc">등록된 행사가 없습니다.</p>
+			<section className="admin-upload p-6 rounded-lg bg-slate-800/40 border border-slate-700/50 text-center">
+				<h2 className="admin-title text-xl font-semibold text-white mb-2">이벤트 관리</h2>
+
+				<p className="admin-desc text-sm text-slate-300">등록된 행사가 없습니다.</p>
+
+				{/* 새 행사 추가 버튼 있을 경우 표시 */}
+				{onClickNewEvent && (
+					<button type="button" onClick={onClickNewEvent} className="admin-submit mt-4">
+						+ 새 행사 추가
+					</button>
+				)}
 			</section>
 		);
 	}
 
 	return (
-		<section className="admin-upload" style={{ marginTop: '24px' }}>
-			<h2 className="admin-title">이벤트 관리</h2>
-			<p className="admin-desc">
-				행사를 클릭하면 편집 모드로 열립니다. 메모, 이미지 추가/삭제, 순서 변경을 할 수 있습니다.
-				<br />
-				이미지 순서는 드래그 앤 드랍으로 변경하고, <code>변경 사항 저장</code> 버튼을 눌러야 서버에 반영됩니다.
-			</p>
+		<section className="admin-upload">
+			{/* 상단 헤더: 이벤트 관리 제목 + 새 행사 추가 버튼 */}
+			<div className="flex items-start justify-between gap-6 mb-6 p-4 rounded-lg bg-slate-800/40 border border-slate-700/50">
+				{/* 제목 / 설명 */}
+				<div className="flex-1">
+					<h2 className="admin-title text-xl font-semibold text-white mb-2">이벤트 관리</h2>
+
+					<p className="admin-desc text-sm text-slate-300 leading-relaxed">
+						행사를 클릭하면 편집 모드로 열립니다. 메모, 이미지 추가/삭제, 순서 변경을 할 수 있습니다.
+						<br />
+						이미지 순서는 드래그 앤 드랍으로 변경하고,
+						<code className="px-1 mx-1 bg-slate-700 rounded text-slate-200">변경 사항 저장</code>
+						버튼을 눌러야 서버에 반영됩니다.
+					</p>
+				</div>
+
+				{/* 새 행사 추가 버튼 */}
+				{onClickNewEvent && (
+					<button type="button" onClick={onClickNewEvent} className="admin-submit whitespace-nowrap self-start">
+						+ 새 행사 추가
+					</button>
+				)}
+			</div>
 
 			{entries.map(([id, ev]) => {
 				const qrUrl = `${qrBaseUrl}/?event=${encodeURIComponent(id)}`;
@@ -923,12 +1058,43 @@ function AdminEventManager({ events, setEvents }) {
 				const order = photoOrderDrafts[id] || basePhotos.map((_, idx) => idx);
 				const orderedPhotos = order.map((idx) => basePhotos[idx]).filter(Boolean);
 
+				const firstPhoto = basePhotos[0];
+				const thumbSrc = firstPhoto ? firstPhoto.thumb || firstPhoto.full : null;
+
 				return (
 					<div key={id} className="admin-event-block">
-						<div className="admin-event-header" onClick={() => toggleActive(id)} style={{ cursor: 'pointer' }}>
-							<div>
-								<strong>{ev.title}</strong> <span className="admin-event-meta">({id})</span>
+						{/* 이벤트 헤더 */}
+						<div className="admin-event-header cursor-pointer" onClick={() => toggleActive(id)}>
+							<div className="admin-event-header-main">
+								<div className="admin-event-thumb">
+									{thumbSrc ? (
+										<img
+											src={thumbSrc}
+											alt={firstPhoto?.alt || ev.title}
+											loading="lazy"
+											decoding="async"
+											className="w-full h-full object-cover"
+										/>
+									) : (
+										<span className="admin-event-thumb-fallback">
+											No
+											<br />
+											Image
+										</span>
+									)}
+								</div>
+
+								<div className="admin-event-header-text">
+									<div className="flex flex-col gap-1">
+										<div className="flex items-center gap-2">
+											<strong className="text-sm md:text-base">{ev.title}</strong>
+											<span className="admin-event-meta text-xs text-slate-400">({id})</span>
+										</div>
+										<p className="text-[11px] text-slate-400">이미지 {ev.photos?.length ?? 0}장 · 클릭하면 상세 편집</p>
+									</div>
+								</div>
 							</div>
+
 							<button
 								type="button"
 								className="admin-submit"
@@ -941,71 +1107,91 @@ function AdminEventManager({ events, setEvents }) {
 							</button>
 						</div>
 
+						{/* 이벤트 바디 (펼쳐졌을 때) */}
 						{isActive && (
-							<div className="admin-event-body">
-								<p className="admin-desc">
-									QR 링크: <code>{qrUrl}</code>
-								</p>
+							<div className="admin-event-body mt-3 space-y-4">
+								{/* QR 링크 */}
+								<div className="admin-row">
+									<p className="admin-desc text-xs md:text-sm">
+										QR 링크:{' '}
+										<code className="bg-slate-800/80 px-2 py-1 rounded text-[11px] md:text-xs break-all">{qrUrl}</code>
+									</p>
+								</div>
 
 								{/* 비공개 메모 */}
 								<div className="admin-row">
-									<label style={{ width: '100%' }}>
-										비공개 메모
+									<label className="w-full flex flex-col gap-1">
+										<span className="text-xs font-medium text-slate-200">비공개 메모</span>
 										<textarea
 											rows={2}
+											className="admin-textarea"
 											value={noteDrafts[id] ?? ''}
 											onChange={(e) => handleNoteChange(id, e.target.value)}
+											placeholder="이 행사를 관리할 때 참고할 메모를 남겨두세요. (지면소식지용 비고 등)"
 										/>
 									</label>
 								</div>
 
-								{/* 이미지 추가 업로드 */}
-								<div className="admin-row" style={{ marginTop: 12 }}>
-									<label style={{ width: '100%' }}>
-										추가 이미지 업로드
-										<input type="file" accept="image/*" multiple onChange={(e) => handleFileChangeForEvent(id, e)} />
-									</label>
-									{files.length > 0 && (
-										<p className="admin-files">선택된 파일: {files.map((f) => f.name).join(', ')}</p>
-									)}
-									<button type="button" className="admin-submit" onClick={() => handleAddPhotos(id, ev)}>
-										선택 이미지 추가 업로드
-									</button>
+								{/* 추가 이미지 업로드 */}
+								<div className="admin-row">
+									<div className="w-full flex flex-col gap-2">
+										<div className="flex items-end justify-between gap-4">
+											<label className="flex flex-col gap-1 flex-1">
+												<span className="text-xs font-medium text-slate-200">추가 이미지 업로드</span>
+												<input
+													type="file"
+													accept="image/*"
+													multiple
+													onChange={(e) => handleFileChangeForEvent(id, e)}
+													className="admin-input"
+												/>
+											</label>
+
+											<button
+												type="button"
+												className="admin-submit flex-shrink-0"
+												onClick={() => handleAddPhotos(id, ev)}
+											>
+												이미지 추가
+											</button>
+										</div>
+
+										{files.length > 0 && (
+											<p className="admin-files text-xs text-slate-300">
+												선택된 파일: {files.map((f) => f.name).join(', ')}
+											</p>
+										)}
+									</div>
 								</div>
 
 								{/* 이미지 목록 + 드래그 앤 드랍 순서 조정 + 삭제 */}
-								<div className="admin-photo-list" style={{ marginTop: 12 }}>
+								<div className="admin-photo-list mt-3 flex flex-col gap-3">
 									{orderedPhotos.map((photo, index) => {
 										const originalIndex = order[index]; // 서버 기준 인덱스
-
 										const isDragging = dragInfo.eventId === id && dragInfo.index === index;
 
 										return (
 											<div
 												key={photo.full || photo.thumb || index}
-												className={'admin-photo-item' + (isDragging ? ' admin-photo-item--dragging' : '')}
+												className={
+													'flex items-start gap-3 rounded-md border border-slate-700 bg-slate-900/80 p-3 shadow-sm transition ' +
+													(isDragging ? 'opacity-50 border-indigo-400 shadow-md' : '')
+												}
 												draggable
 												onDragStart={() => handleDragStart(id, index)}
 												onDragOver={(e) => handleDragOver(e, id, index)}
 												onDrop={() => handleDrop(id, index)}
 												onDragEnd={handleDragEnd}
 											>
-												<div className="admin-photo-thumb-wrap">
-													<img
-														src={photo.thumb || photo.full}
-														alt={photo.alt}
-														style={{
-															width: 80,
-															height: 80,
-															objectFit: 'cover',
-															borderRadius: 6,
-															flexShrink: 0,
-														}}
-													/>
+												<div className="admin-photo-thumb-wrap w-20 h-20 rounded-md overflow-hidden flex-shrink-0 border border-slate-700 bg-black/20">
+													<img src={photo.thumb || photo.full} alt={photo.alt} className="w-full h-full object-cover" />
 												</div>
-												<div className="admin-photo-main">
-													<div className="admin-photo-row">
-														<span className="admin-photo-handle">⋮⋮ 드래그로 순서 변경</span>
+
+												<div className="admin-photo-main flex-1 flex flex-col gap-1">
+													<div className="admin-photo-row flex items-center justify-between gap-2">
+														<span className="admin-photo-handle text-xs text-slate-300 cursor-grab select-none">
+															⋮⋮ 드래그로 순서 변경
+														</span>
 														<button
 															type="button"
 															className="admin-submit"
@@ -1014,24 +1200,20 @@ function AdminEventManager({ events, setEvents }) {
 															삭제
 														</button>
 													</div>
-													{photo.alt && <p className="admin-photo-alt">{photo.alt}</p>}
+
+													{photo.alt && <p className="admin-photo-alt text-xs text-slate-400">{photo.alt}</p>}
 												</div>
 											</div>
 										);
 									})}
-									{orderedPhotos.length === 0 && <p className="admin-desc">등록된 이미지가 없습니다.</p>}
+
+									{orderedPhotos.length === 0 && (
+										<p className="admin-desc text-sm text-slate-400">등록된 이미지가 없습니다.</p>
+									)}
 								</div>
 
 								{/* 저장 / 취소 버튼 */}
-								<div
-									className="admin-row"
-									style={{
-										marginTop: 12,
-										display: 'flex',
-										gap: 8,
-										justifyContent: 'flex-end',
-									}}
-								>
+								<div className="flex justify-end gap-2 mt-3">
 									<button
 										type="button"
 										className="admin-submit"
@@ -1057,4 +1239,3 @@ function AdminEventManager({ events, setEvents }) {
 		</section>
 	);
 }
-

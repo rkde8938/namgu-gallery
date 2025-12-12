@@ -1,377 +1,290 @@
-/* 전체 레이아웃 기본값 */
-html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
+@import "tailwindcss";
 
-body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  background: #050509;
-  color: #f9fafb;
-  max-width: 1200px;
-  margin: 50px auto;
-}
+/* ==== 전역 기본값 ==== */
+@layer base {
 
-/* 페이지 래퍼 */
-.page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 12px 24px;
-  box-sizing: border-box;
-}
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
 
-/* 상단 헤더 */
-.header {
-  padding: 8px 4px 12px;
-}
+  body {
+    @apply bg-slate-950 text-slate-50 antialiased;
+  }
 
-.header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.title {
-  font-size: 1.25rem;
-  margin: 0;
-}
-
-.meta {
-  font-size: 0.8rem;
-  color: #9ca3af;
-  margin: 0;
-}
-
-.notice {
-  font-size: 0.9rem;
-  color: #9ca3af;
-}
-
-/* 갤러리 썸네일 그리드 – 모바일 기준 3열 */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  margin-top: 8px;
-}
-
-/* 화면이 아주 좁으면 2열로 줄이기 */
-@media (max-width: 360px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  code {
+    @apply text-xs bg-slate-800/80 px-1.5 py-0.5 rounded font-mono;
   }
 }
 
-/* 썸네일 버튼/이미지 스타일 */
+/* ==== 레이아웃 & 공통 텍스트 ==== */
+@layer components {
+  .page {
+    @apply min-h-screen flex flex-col box-border px-3 py-6 max-w-5xl mx-auto;
+  }
+
+  .header {
+    @apply pb-3 mb-3 border-b border-slate-800;
+  }
+
+  .header-text {
+    @apply flex flex-col gap-1;
+  }
+
+  .title {
+    @apply text-xl font-semibold m-0;
+  }
+
+  .meta {
+    @apply text-xs text-slate-400 m-0;
+  }
+
+  .notice {
+    @apply text-sm text-slate-400;
+  }
+
+  .link-back {
+    @apply text-sky-400 hover:underline;
+  }
+}
+
+/* ==== 퍼블릭 행사 목록 카드 ==== */
+@layer components {
+  .event-list {
+    @apply mt-3 flex flex-col gap-3;
+  }
+
+  .event-card {
+    @apply flex items-center gap-3 rounded-xl bg-slate-900/90 px-3 py-2 text-slate-50 no-underline transition-colors hover:bg-indigo-700/70;
+  }
+
+  .event-card-thumb {
+    @apply w-20 h-20 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center flex-shrink-0;
+  }
+
+  .event-card-thumb img {
+    @apply w-full h-full object-cover block;
+  }
+
+  .event-card-thumb-fallback {
+    @apply text-xs text-slate-400 text-center;
+  }
+
+  .event-card-body {
+    @apply flex flex-col gap-1;
+  }
+
+  .event-card-title {
+    @apply text-base font-medium m-0;
+  }
+}
+
+/* ==== 갤러리 썸네일 그리드 ==== */
+@layer components {
+
+  /* 모바일 2열, sm 이상 3열 */
+  .grid {
+    @apply grid grid-cols-2 sm:grid-cols-3 gap-1 mt-2;
+  }
+
+  .thumb {
+    @apply relative p-0 border-0 bg-transparent rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300 ease-out aspect-square w-full hover:shadow-lg;
+  }
+
+  .thumb-img {
+    @apply w-full h-full object-cover block transition-transform duration-300 ease-out;
+  }
+
+  /* 🔹 오버레이 요소 */
+  .thumb::after {
+    content: '';
+    @apply absolute inset-0 bg-white/20 opacity-0 transition-opacity duration-300;
+  }
+
+  /* 🔹 hover 시 오버레이 + 이미지 확대 */
+  .thumb:hover::after {
+    @apply opacity-100;
+  }
+
+  .thumb:hover .thumb-img {
+    transform: scale(1.06);
+  }
+}
+
+/* ==== 관리자 공통 박스 ==== */
+@layer components {
+  .admin-upload {
+    @apply rounded-2xl bg-slate-900/80 p-4 space-y-3;
+  }
+
+  .admin-title {
+    @apply text-lg font-semibold;
+  }
+
+  .admin-desc {
+    @apply text-sm text-slate-400;
+  }
+
+  .admin-form {
+    @apply mt-2 space-y-3;
+  }
+
+  .admin-row {
+    @apply flex flex-col gap-1;
+  }
+
+  .admin-files {
+    @apply text-xs text-slate-400;
+  }
+
+  .admin-submit {
+    @apply inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+}
+
+@layer components {
+
+  /* 관리자 페이지 전체 레이아웃 */
+  .admin-main {
+    @apply flex flex-col gap-6;
+  }
+
+  /* 상단: 로그인 카드 + 새 행사 카드 (PC에서 2열) */
+  .admin-top-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-4 items-start;
+  }
+
+  input[type="text"],
+  input[type="date"],
+  input[type="number"],
+  input[type="password"],
+  input[type="file"],
+  textarea {
+    @apply bg-slate-800/70 p-1 rounded-xl flex flex-col gap-3 shadow-inner w-full text-slate-50 placeholder-slate-500 border border-slate-700 focus:border-sky-400 focus:outline-none;
+  }
+}
+
+/* ==== 관리자 모달 ==== */
+@layer components {
+  .admin-modal-backdrop {
+    @apply fixed inset-0 bg-black/60 flex items-center justify-center z-50;
+  }
+
+  .admin-modal {
+    @apply w-full max-w-lg rounded-2xl bg-slate-900 p-5 shadow-xl space-y-3;
+  }
+}
+
+/* ==== 관리자 이벤트 리스트 헤더 + 썸네일 ==== */
+@layer components {
+  .admin-event-block {
+    @apply mt-3 rounded-2xl bg-slate-900/80 p-4;
+  }
+
+  .admin-event-header {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .admin-event-header-main {
+    @apply flex items-center gap-3;
+  }
+
+  .admin-event-header-text {
+    @apply flex flex-col gap-0.5;
+  }
+
+  .admin-event-meta {
+    @apply text-xs text-slate-400;
+  }
+
+  .admin-event-body {
+    @apply mt-3 space-y-3 border-t border-slate-800 pt-3;
+  }
+
+  .admin-event-thumb {
+    @apply w-12 h-12 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center flex-shrink-0;
+  }
+
+  .admin-event-thumb img {
+    @apply w-full h-full object-cover block;
+  }
+
+  .admin-event-thumb-fallback {
+    @apply text-xs leading-tight text-slate-400 text-center;
+  }
+}
+
+/* ==== 관리자 이미지 리스트 + 드래그 상태 ==== */
+@layer components {
+  .admin-photo-list {
+    @apply mt-3 space-y-2;
+  }
+
+  .admin-photo-item {
+    @apply flex items-center gap-3 rounded-xl bg-slate-900/90 px-2 py-2;
+  }
+
+  .admin-photo-item--dragging {
+    @apply opacity-60 border border-dashed border-sky-400;
+  }
+
+  .admin-photo-main {
+    @apply flex flex-col flex-1 gap-1;
+  }
+
+  .admin-photo-row {
+    @apply flex items-center justify-between gap-2;
+  }
+
+  .admin-photo-handle {
+    @apply text-xs text-slate-400;
+  }
+
+  .admin-photo-alt {
+    @apply text-xs text-slate-500;
+  }
+}
+
+/* ==== 갤러리 썸네일 공통 스타일 (상세 페이지 + 리스트 공용) ==== */
+
+/* 버튼 자체는 테두리/배경 제거 */
 .thumb {
   padding: 0;
   border: none;
   background: transparent;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
   cursor: pointer;
 }
 
-/* 썸네일 위에 살짝 비치는 하이라이트 레이어 */
-.thumb::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at center,
-      rgba(255, 255, 255, 0.18),
-      rgba(15, 23, 42, 0.0));
-  opacity: 0;
-  transition: opacity 0.2s ease-out;
+/* 실제 썸네일 박스: 정사각형 + 오버플로우 잘라내기 */
+.thumb-inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  /* ✅ 항상 정사각형 */
+  overflow: hidden;
+  border-radius: 0.75rem;
 }
 
-.thumb:hover::after,
-.thumb:focus-visible::after {
-  opacity: 1;
-}
-
+/* 이미지가 컨테이너를 꽉 채우도록 */
 .thumb-img {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
-  transition: transform 0.2s ease-out, filter 0.2s ease-out;
+  /* ✅ background-size: cover 같은 효과 */
 }
 
-.thumb:hover .thumb-img,
-.thumb:focus-visible .thumb-img {
-  transform: scale(1.06);
-  filter: brightness(1.08);
-}
-
-/* code 태그 살짝만 스타일 */
-code {
-  background: rgba(148, 163, 184, 0.2);
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-}
-
-/* ==== 행사 목록 카드 리스트 ==== */
-
-.event-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.event-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 12px;
-  text-decoration: none;
-  background: rgba(15, 23, 42, 0.9);
-  /* 진한 남색 계열 */
-  color: inherit;
-}
-
-.event-card:hover {
-  background: rgba(30, 64, 175, 0.7);
-  /* 살짝 하이라이트 */
-}
-
-.event-card-thumb {
-  width: 72px;
-  height: 72px;
-  border-radius: 8px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #111827;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.event-card-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.event-card-thumb-fallback {
-  font-size: 0.7rem;
-  color: #9ca3af;
-}
-
-.event-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.event-card-title {
-  font-size: 1rem;
-  margin: 0;
-}
-
-.event-card-meta {
-  font-size: 0.8rem;
-  margin: 0;
-  color: #9ca3af;
-}
-
-/* 뒤로가기 링크 */
-.link-back {
-  color: #60a5fa;
-  text-decoration: none;
-}
-
-.link-back:hover {
-  text-decoration: underline;
-}
-
-/* ==== 관리자 업로드 폼 ==== */
-
-.admin-upload {
-  margin-top: 32px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.9);
-}
-
-.admin-title {
-  font-size: 1rem;
-  margin: 0 0 4px;
-}
-
-.admin-desc {
-  font-size: 0.8rem;
-  color: #9ca3af;
-  margin: 0 0 12px;
-}
-
-.admin-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.admin-row label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
-}
-
-.admin-row input[type="text"],
-.admin-row input[type="file"] {
-  border-radius: 6px;
-  border: 1px solid #374151;
-  padding: 6px 8px;
-  background: #020617;
-  color: #e5e7eb;
-  font-size: 0.8rem;
-}
-
-.admin-files {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  margin-top: 4px;
-}
-
-.admin-submit {
-  align-self: flex-start;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: none;
-  background: #2563eb;
-  color: #f9fafb;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.admin-submit:hover {
-  background: #1d4ed8;
-}
-
-.admin-code-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.admin-code-block textarea {
-  width: 100%;
-  min-height: 160px;
-  border-radius: 8px;
-  border: 1px solid #4b5563;
-  background: #020617;
-  color: #e5e7eb;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  font-size: 0.75rem;
-  padding: 8px;
-  resize: vertical;
-}
-
-.admin-modal-backdrop {
-  position: fixed;
+/* hover 시 하얀 오버레이 */
+.thumb-hover {
+  position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 40;
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+  pointer-events: none;
 }
 
-.admin-modal {
-  background: #020617;
-  border-radius: 16px;
-  padding: 16px 20px;
-  max-width: 420px;
-  width: calc(100% - 32px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-}
-
-.admin-event-block {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.9);
-}
-
-.admin-event-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.admin-event-body {
-  margin-top: 8px;
-}
-
-.admin-photo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.admin-photo-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.admin-photo-controls {
-  display: flex;
-  gap: 4px;
-}
-
-.admin-photo-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.8);
-  margin-bottom: 4px;
-}
-
-.admin-photo-item--dragging {
-  opacity: 0.6;
-  border: 1px dashed #60a5fa;
-}
-
-.admin-photo-thumb-wrap {
-  flex-shrink: 0;
-}
-
-.admin-photo-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.admin-photo-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.admin-photo-handle {
-  font-size: 0.8rem;
-  color: #9ca3af;
-}
-
-.admin-photo-alt {
-  font-size: 0.75rem;
-  color: #9ca3af;
+.thumb-inner:hover .thumb-hover {
+  opacity: 1;
 }

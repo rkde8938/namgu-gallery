@@ -25,17 +25,17 @@
                 "alt": "크리스마스 - 이미지"
             },
             {
-                "full": "\/gallery-images\/cristmas\/frost-9983255_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/frost-9983255_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            },
-            {
                 "full": "\/gallery-images\/cristmas\/winter-9748652_full.webp",
                 "thumb": "\/gallery-images\/cristmas\/winter-9748652_thumb.webp",
                 "alt": "크리스마스 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/cristmas\/frost-9983255_full.webp",
+                "thumb": "\/gallery-images\/cristmas\/frost-9983255_thumb.webp",
+                "alt": "크리스마스 - 이미지"
             }
         ],
-        "note": "ㅁㄴㅇㄹ"
+        "note": ""
     },
     "test": {
         "title": "테스트",
