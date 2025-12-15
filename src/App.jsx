@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
 import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
 import './index.css';
@@ -46,6 +47,28 @@ export default function App() {
 	const eventId = useMemo(() => getEventIdFromUrl(), []);
 	const eventEntries = Object.entries(events || {});
 	const eventData = eventId ? events[eventId] : null;
+
+  const viewedKey = useMemo(() => (eventId ? `viewed_${eventId}` : null), [eventId]);
+
+	// ✅ 그리고 바로 아래에 조회수 증가 useEffect
+	useEffect(() => {
+		if (!eventId || !eventData) return;
+
+		// dev에서 StrictMode로 useEffect 2번 도는 거 방지
+		if (import.meta.env.DEV && viewedKey && sessionStorage.getItem(viewedKey)) return;
+		if (import.meta.env.DEV && viewedKey) sessionStorage.setItem(viewedKey, '1');
+
+		(async () => {
+			try {
+				await fetchJson('/api/gallery/view_event.php', {
+					method: 'POST',
+					body: new URLSearchParams({ event_id: eventId }),
+				});
+			} catch (e) {
+				console.warn('view_event 실패(무시 가능):', e);
+			}
+		})();
+	}, [eventId, eventData, viewedKey]);
 
 	// 🔹 /admin 또는 /gallery/admin 같은 경로인지 체크
 	const isAdminRoute = window.location.pathname.includes('admin');
@@ -94,6 +117,24 @@ export default function App() {
 				alt: p.alt,
 		  }))
 		: [];
+
+	useEffect(() => {
+		if (!eventId || !eventData) return;
+
+		(async () => {
+			try {
+				// body는 PHP에서 POST/JSON 둘 다 받게 할 수도 있는데,
+				// 지금은 URLSearchParams로 안전하게 보냄
+				await fetchJson('/api/gallery/view_event.php', {
+					method: 'POST',
+					body: new URLSearchParams({ event_id: eventId }),
+				});
+			} catch (e) {
+				// 조회수 실패는 UX에 영향 없게 조용히 무시
+				console.warn('view_event 실패(무시 가능):', e);
+			}
+		})();
+	}, [eventId, eventData]);
 
 	// 🔹 1) 이벤트 로딩 중
 	if (eventsLoading) {
@@ -259,6 +300,7 @@ export default function App() {
 				<div className="header-text flex justify-between gap-3">
 					<div>
 						<h1 className="title">{eventData.title}</h1>
+						{/* <span className="text-xs text-slate-400">조회수 {Number(eventData.views || 0)}회</span> */}
 						<p className="meta text-xs md:text-sm text-slate-300">사진 {eventData.photos?.length ?? 0}장</p>
 					</div>
 
@@ -292,11 +334,18 @@ export default function App() {
 				index={openIndex}
 				close={() => setOpenIndex(-1)}
 				slides={slides}
-				plugins={[Fullscreen]}
+				plugins={[Fullscreen, Zoom]}
 				controller={{
-					closeOnBackdropClick: true, // 바깥 클릭 시 닫기
-					closeOnPullDown: true, // 끌어내리면 닫기
+					closeOnBackdropClick: true,
+					closeOnPullDown: true,
 				}}
+				zoom={
+					{
+						// 옵션은 필요할 때만(기본값으로도 핀치줌 됨)
+						// maxZoomPixelRatio: 2,
+						// scrollToZoom: true, // 트랙패드/마우스 스크롤로 줌
+					}
+				}
 			/>
 		</div>
 	);
@@ -684,7 +733,6 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 		</div>
 	);
 }
-
 
 function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const [noteDrafts, setNoteDrafts] = useState({});
@@ -1090,7 +1138,9 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 											<strong className="text-sm md:text-base">{ev.title}</strong>
 											<span className="admin-event-meta text-xs text-slate-400">({id})</span>
 										</div>
-										<p className="text-[11px] text-slate-400">이미지 {ev.photos?.length ?? 0}장 · 클릭하면 상세 편집</p>
+										<p className="text-[11px] text-slate-400">
+											이미지 {ev.photos?.length ?? 0}장 · 조회수 {Number(ev.views || 0)}회 · 클릭하면 상세 편집
+										</p>
 									</div>
 								</div>
 							</div>
