@@ -155,6 +155,7 @@ if (!isset($events[$eventId])) {
     'title'    => $title,
     'note'     => $note,  // 🔹 비공개 메모
     'photos'   => [],
+    'views'    => 0,  // ✅ 조회수 기본값
   ];
 } else {
   // 이미 있는 이벤트에 note를 수정하고 싶으면:

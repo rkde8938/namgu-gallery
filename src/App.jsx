@@ -118,24 +118,6 @@ export default function App() {
 		  }))
 		: [];
 
-	useEffect(() => {
-		if (!eventId || !eventData) return;
-
-		(async () => {
-			try {
-				// body는 PHP에서 POST/JSON 둘 다 받게 할 수도 있는데,
-				// 지금은 URLSearchParams로 안전하게 보냄
-				await fetchJson('/api/gallery/view_event.php', {
-					method: 'POST',
-					body: new URLSearchParams({ event_id: eventId }),
-				});
-			} catch (e) {
-				// 조회수 실패는 UX에 영향 없게 조용히 무시
-				console.warn('view_event 실패(무시 가능):', e);
-			}
-		})();
-	}, [eventId, eventData]);
-
 	// 🔹 1) 이벤트 로딩 중
 	if (eventsLoading) {
 		return (
@@ -1139,7 +1121,8 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 											<span className="admin-event-meta text-xs text-slate-400">({id})</span>
 										</div>
 										<p className="text-[11px] text-slate-400">
-											이미지 {ev.photos?.length ?? 0}장 · 조회수 {Number(ev.views || 0)}회 · 클릭하면 상세 편집
+											이미지 {ev.photos?.length ?? 0}장 · 조회수 {Number(ev.views || 0)} · 방문자{' '}
+											{Number(ev.unique_views || 0)} · 클릭하면 상세 편집
 										</p>
 									</div>
 								</div>

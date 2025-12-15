@@ -36,7 +36,8 @@
             }
         ],
         "note": "",
-        "views": 4
+        "views": 6,
+        "unique_views": 2
     },
     "test": {
         "title": "테스트",
@@ -57,6 +58,8 @@
                 "thumb": "\/gallery-images\/test\/14_thumb.webp",
                 "alt": "테스트 - 이미지"
             }
-        ]
+        ],
+        "views": 3,
+        "unique_views": 3
     }
 }
