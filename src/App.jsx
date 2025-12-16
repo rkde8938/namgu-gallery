@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useId } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
@@ -32,6 +32,28 @@ async function fetchJson(path, options = {}) {
 function getEventIdFromUrl() {
 	const params = new URLSearchParams(window.location.search);
 	return params.get('event');
+}
+
+function fileNameFromUrl(url) {
+	if (!url) return '';
+	try {
+		const u = new URL(url, window.location.origin);
+		const last = u.pathname.split('/').filter(Boolean).pop() || '';
+		return decodeURIComponent(last);
+	} catch {
+		const last = String(url).split('?')[0].split('#')[0].split('/').filter(Boolean).pop() || '';
+		try {
+			return decodeURIComponent(last);
+		} catch {
+			return last;
+		}
+	}
+}
+
+function shortName(name, max = 42) {
+	if (!name) return '';
+	if (name.length <= max) return name;
+	return name.slice(0, max - 1) + '…';
 }
 
 export default function App() {
@@ -542,10 +564,18 @@ function AdminUploadForm({ onUploaded }) {
 				{/* 이미지 업로드 + 선택 파일 표시 */}
 				<div className="admin-row flex flex-col gap-2">
 					<div className="flex flex-col md:flex-row md:items-end gap-2 w-full">
-						<label className="flex-1 flex flex-col gap-1 text-sm text-slate-100">
+						<div className="flex-1 flex flex-col gap-1 text-sm text-slate-100">
 							<span className="text-xs font-medium text-slate-200">이미지 파일 (여러 장 선택 가능)</span>
-							<input type="file" accept="image/*" multiple onChange={handleFileChange} className="admin-input" />
-						</label>
+							<FilePicker
+								id="new-event-files"
+								multiple
+								accept="image/*"
+								files={files}
+								onChange={handleFileChange}
+								buttonText="이미지 선택"
+								helpText="여러 장 선택 가능"
+							/>
+						</div>
 
 						<button type="submit" className="admin-submit md:self-stretch md:px-5" disabled={busy}>
 							{busy ? '업로드 중...' : '행사 업로드'}
@@ -677,7 +707,15 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 						<div className="w-full flex flex-col gap-2">
 							<label className="flex flex-col gap-1 text-sm text-slate-100">
 								<span className="text-xs font-medium text-slate-200">이미지 파일 (여러 장 선택 가능)</span>
-								<input type="file" accept="image/*" multiple onChange={handleFileChange} className="admin-input" />
+								<FilePicker
+									id="modal-new-event-files"
+									multiple
+									accept="image/*"
+									files={files}
+									onChange={handleFileChange}
+									buttonText="이미지 선택"
+									helpText="여러 장 선택 가능"
+								/>
 							</label>
 
 							{files.length > 0 && (
@@ -713,36 +751,56 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 	);
 }
 
+function safeDomId(str) {
+	return String(str).replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
 function FilePicker({
 	id,
 	multiple = false,
 	accept = 'image/*',
 	files = [],
 	onChange,
+	onDropFiles, // ✅ 추가
 	buttonText = '이미지 선택',
 	helpText = '여러 장 선택 가능',
 }) {
-	const inputId = id || `file-${Math.random().toString(36).slice(2)}`;
+	const rid = useId();
+
+	// ✅ 렌더가 반복돼도 inputId가 고정되도록
+	const inputId = useMemo(() => {
+		const base = id ? `fp_${safeDomId(id)}` : `fp_${safeDomId(rid)}`;
+		return base;
+	}, [id, rid]);
 
 	return (
 		<div className="w-full">
 			<div className="flex flex-col sm:flex-row sm:items-center gap-2">
-				{/* 실제 input은 숨김 */}
-				<input id={inputId} type="file" accept={accept} multiple={multiple} onChange={onChange} className="hidden" />
+				<input
+					id={inputId}
+					type="file"
+					accept={accept}
+					multiple={multiple}
+					className="hidden"
+					onChange={(e) => {
+						onChange?.(e);
 
-				{/* 버튼처럼 보이는 라벨 */}
+						// ✅ 같은 파일 다시 선택해도 change가 다시 뜨게
+						// (업로드 후 같은 파일 재업로드 시도할 때 필수)
+						e.target.value = '';
+					}}
+				/>
+
 				<label
 					htmlFor={inputId}
 					className="
-            inline-flex items-center justify-center
-            rounded-lg border border-slate-700/70
-            bg-slate-900/60 hover:bg-slate-900/80
-            px-4 py-2 text-sm font-medium text-slate-100
-            cursor-pointer select-none
-            transition
-            focus:outline-none focus:ring-2 focus:ring-slate-400/60
-            whitespace-nowrap
-          "
+						inline-flex items-center justify-center
+						rounded-lg border border-slate-700/70
+						bg-slate-900/60 hover:bg-slate-900/80
+						px-4 py-2 text-sm font-medium text-slate-100
+						cursor-pointer select-none transition
+						whitespace-nowrap
+					"
 				>
 					{buttonText}
 				</label>
@@ -752,12 +810,11 @@ function FilePicker({
 				</div>
 			</div>
 
-			{/* 선택된 파일 목록 */}
 			{files?.length > 0 && (
 				<div className="mt-2 rounded-lg border border-slate-700/60 bg-slate-950/20 px-3 py-2">
 					<ul className="space-y-1 text-xs text-slate-200">
 						{files.map((f) => (
-							<li key={f.name} className="flex items-center justify-between gap-2">
+							<li key={`${f.name}-${f.size}-${f.lastModified}`} className="flex items-center justify-between gap-2">
 								<span className="truncate">{f.name}</span>
 								<span className="shrink-0 text-slate-400">{(f.size / 1024 / 1024).toFixed(2)}MB</span>
 							</li>
@@ -782,6 +839,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 
 	// AdminEventManager 내부 (다른 useState들이랑 같은 레벨)
 	const [unitByEvent, setUnitByEvent] = useState({}); // day | week | month | year
+	const [uploadBusyByEvent, setUploadBusyByEvent] = useState({});
 
 	const entries = Object.entries(events || {});
 
@@ -922,8 +980,8 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 			return;
 		}
 
-		const oldPhotos = events[eventId]?.photos || [];
-		const oldLen = oldPhotos.length;
+		// 🔴 여기! 업로드 시작
+		setUploadBusyByEvent((p) => ({ ...p, [eventId]: true }));
 
 		try {
 			const formData = new FormData();
@@ -941,33 +999,15 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 
 			if (!data.ok) throw new Error(data.error || '이미지 추가 실패');
 
-			const newEvents = data.events || {};
-			setEvents(newEvents);
-			setUploadFiles((prev) => ({
-				...prev,
-				[eventId]: [],
-			}));
-
-			// 새로 추가된 이미지 인덱스를 순서 draft에 붙여주기
-			const newPhotos = newEvents[eventId]?.photos || [];
-			const newLen = newPhotos.length;
-			if (newLen > oldLen) {
-				setPhotoOrderDrafts((prev) => {
-					const prevOrder = prev[eventId] || oldPhotos.map((_, idx) => idx);
-					const extended = [...prevOrder];
-					for (let i = oldLen; i < newLen; i++) {
-						extended.push(i);
-					}
-					return {
-						...prev,
-						[eventId]: extended,
-					};
-				});
-			}
+			setEvents(data.events || {});
+			setUploadFiles((p) => ({ ...p, [eventId]: [] }));
 
 			alert('이미지 추가 완료!');
 		} catch (err) {
 			alert(err.message);
+		} finally {
+			// 🟢 여기! 업로드 종료 (성공/실패 공통)
+			setUploadBusyByEvent((p) => ({ ...p, [eventId]: false }));
 		}
 	}
 
@@ -1136,21 +1176,21 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 		return { from: addDays(today, -6), to: today };
 	}
 
-function dateRangeArray(from, to, maxDays = 400) {
-	if (!from || !to) return [];
-	if (from > to) return [];
+	function dateRangeArray(from, to, maxDays = 400) {
+		if (!from || !to) return [];
+		if (from > to) return [];
 
-	const out = [];
-	let cur = from;
+		const out = [];
+		let cur = from;
 
-	for (let guard = 0; guard < maxDays && cur <= to; guard++) {
-		out.push(cur);
-		const next = addDays(cur, 1);
-		if (!next || next === cur) break;
-		cur = next;
+		for (let guard = 0; guard < maxDays && cur <= to; guard++) {
+			out.push(cur);
+			const next = addDays(cur, 1);
+			if (!next || next === cur) break;
+			cur = next;
+		}
+		return out;
 	}
-	return out;
-}
 
 	function aggStats(stats, from, to, unit) {
 		const days = dateRangeArray(from, to, unit === 'year' ? 2500 : 400);
@@ -1775,21 +1815,31 @@ function dateRangeArray(from, to, maxDays = 400) {
 										<div className="flex items-end justify-between gap-4">
 											<label className="flex flex-col gap-1 flex-1">
 												<span className="text-xs font-medium text-slate-200">추가 이미지 업로드</span>
-												<input
-													type="file"
-													accept="image/*"
+												<FilePicker
+													id={`add-files-${id}`}
 													multiple
+													accept="image/*"
+													files={files}
 													onChange={(e) => handleFileChangeForEvent(id, e)}
-													className="admin-input"
+													buttonText="파일 선택"
+													helpText="이미지 여러 장 선택 가능"
 												/>
 											</label>
 
 											<button
 												type="button"
-												className="admin-submit flex-shrink-0"
+												className="admin-submit flex-shrink-0 flex items-center gap-2 disabled:opacity-50"
+												disabled={files.length === 0 || uploadBusyByEvent?.[id]}
 												onClick={() => handleAddPhotos(id, ev)}
 											>
-												이미지 추가
+												{uploadBusyByEvent?.[id] ? (
+													<>
+														<Spinner />
+														업로드 중…
+													</>
+												) : (
+													'이미지 추가'
+												)}
 											</button>
 										</div>
 
@@ -1802,10 +1852,11 @@ function dateRangeArray(from, to, maxDays = 400) {
 								</div>
 
 								{/* 이미지 목록 + 드래그 앤 드랍 순서 조정 + 삭제 */}
-								<div className="admin-photo-list mt-3 flex flex-col gap-3">
+								<div className="admin-photo-list mt-3 flex flex-col">
 									{orderedPhotos.map((photo, index) => {
 										const originalIndex = order[index]; // 서버 기준 인덱스
 										const isDragging = dragInfo.eventId === id && dragInfo.index === index;
+										const fname = fileNameFromUrl(photo.full || photo.thumb);
 
 										return (
 											<div
@@ -1827,7 +1878,7 @@ function dateRangeArray(from, to, maxDays = 400) {
 												<div className="admin-photo-main flex-1 flex flex-col gap-1">
 													<div className="admin-photo-row flex items-center justify-between gap-2">
 														<span className="admin-photo-handle text-xs text-slate-300 cursor-grab select-none">
-															⋮⋮ 드래그로 순서 변경
+															:: 드래그로 순서 변경
 														</span>
 														<button
 															type="button"
@@ -1837,6 +1888,22 @@ function dateRangeArray(from, to, maxDays = 400) {
 															삭제
 														</button>
 													</div>
+
+													{/* ✅ 파일명 (클릭 시 원본 새 탭) */}
+													{fname && (
+														<p className="text-[11px] text-slate-300">
+															<span className="text-slate-500">파일명:</span>{' '}
+															<a
+																href={photo.full || photo.thumb}
+																target="_blank"
+																rel="noopener noreferrer"
+																className="underline hover:text-slate-100"
+																onClick={(e) => e.stopPropagation()} // ✅ 편집 토글 방지
+															>
+																{shortName(fname)}
+															</a>
+														</p>
+													)}
 
 													{photo.alt && <p className="admin-photo-alt text-xs text-slate-400">{photo.alt}</p>}
 												</div>
@@ -1874,5 +1941,15 @@ function dateRangeArray(from, to, maxDays = 400) {
 				);
 			})}
 		</section>
+	);
+}
+
+function Spinner({ className = '' }) {
+	return (
+		<span
+			className={
+				'inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ' + className
+			}
+		/>
 	);
 }

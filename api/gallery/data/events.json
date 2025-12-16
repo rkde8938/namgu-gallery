@@ -32,6 +32,11 @@
                 "full": "\/gallery-images\/test\/39_full.webp",
                 "thumb": "\/gallery-images\/test\/39_thumb.webp",
                 "alt": "테스트 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test\/3_full.webp",
+                "thumb": "\/gallery-images\/test\/3_thumb.webp",
+                "alt": "테스트 - 이미지"
             }
         ],
         "views": 7,
@@ -42,5 +47,27 @@
                 "visitors": 1
             }
         }
+    },
+    "test2": {
+        "title": "테스트2",
+        "note": "",
+        "photos": [
+            {
+                "full": "\/gallery-images\/test2\/1_full.webp",
+                "thumb": "\/gallery-images\/test2\/1_thumb.webp",
+                "alt": "테스트2 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test2\/2_full.webp",
+                "thumb": "\/gallery-images\/test2\/2_thumb.webp",
+                "alt": "테스트2 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test2\/3_full.webp",
+                "thumb": "\/gallery-images\/test2\/3_thumb.webp",
+                "alt": "테스트2 - 이미지"
+            }
+        ],
+        "views": 0
     }
 }
