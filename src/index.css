@@ -203,7 +203,7 @@
   }
 
   .admin-event-thumb {
-    @apply w-12 h-12 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center hrink-0;
+    @apply w-12 h-12 rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center shrink-0;
   }
 
   .admin-event-thumb img {
