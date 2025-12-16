@@ -713,6 +713,62 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 	);
 }
 
+function FilePicker({
+	id,
+	multiple = false,
+	accept = 'image/*',
+	files = [],
+	onChange,
+	buttonText = '이미지 선택',
+	helpText = '여러 장 선택 가능',
+}) {
+	const inputId = id || `file-${Math.random().toString(36).slice(2)}`;
+
+	return (
+		<div className="w-full">
+			<div className="flex flex-col sm:flex-row sm:items-center gap-2">
+				{/* 실제 input은 숨김 */}
+				<input id={inputId} type="file" accept={accept} multiple={multiple} onChange={onChange} className="hidden" />
+
+				{/* 버튼처럼 보이는 라벨 */}
+				<label
+					htmlFor={inputId}
+					className="
+            inline-flex items-center justify-center
+            rounded-lg border border-slate-700/70
+            bg-slate-900/60 hover:bg-slate-900/80
+            px-4 py-2 text-sm font-medium text-slate-100
+            cursor-pointer select-none
+            transition
+            focus:outline-none focus:ring-2 focus:ring-slate-400/60
+            whitespace-nowrap
+          "
+				>
+					{buttonText}
+				</label>
+
+				<div className="text-xs text-slate-400">
+					{files?.length ? <span className="text-slate-200">{files.length}개 선택됨</span> : <span>{helpText}</span>}
+				</div>
+			</div>
+
+			{/* 선택된 파일 목록 */}
+			{files?.length > 0 && (
+				<div className="mt-2 rounded-lg border border-slate-700/60 bg-slate-950/20 px-3 py-2">
+					<ul className="space-y-1 text-xs text-slate-200">
+						{files.map((f) => (
+							<li key={f.name} className="flex items-center justify-between gap-2">
+								<span className="truncate">{f.name}</span>
+								<span className="shrink-0 text-slate-400">{(f.size / 1024 / 1024).toFixed(2)}MB</span>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+		</div>
+	);
+}
+
 function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const [noteDrafts, setNoteDrafts] = useState({});
 	const [uploadFiles, setUploadFiles] = useState({});
@@ -723,6 +779,9 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const [dirtyEvents, setDirtyEvents] = useState({});
 	// 드래그 상태
 	const [dragInfo, setDragInfo] = useState({ eventId: null, index: null });
+
+	// AdminEventManager 내부 (다른 useState들이랑 같은 레벨)
+	const [unitByEvent, setUnitByEvent] = useState({}); // day | week | month | year
 
 	const entries = Object.entries(events || {});
 
@@ -757,6 +816,8 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 		}));
 
 		setActiveEventId(eventId);
+
+		setUnitByEvent((p) => ({ ...p, [eventId]: p[eventId] || 'day' }));
 
 		const today = isoDate();
 		setRangeToByEvent((p) => ({ ...p, [eventId]: p[eventId] || today }));
@@ -1055,29 +1116,90 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 		return isoDate(dt);
 	}
 
-	function dateRangeArray(from, to) {
-		if (!from || !to) return [];
-		if (from > to) return [];
-
-		const out = [];
-		let cur = from;
-
-		// ✅ 안전장치: 최대 400일까지만 (무한루프 방지)
-		for (let guard = 0; guard < 400 && cur <= to; guard++) {
-			out.push(cur);
-
-			const next = addDays(cur, 1);
-			// ✅ addDays가 실패하거나 같은 값이면 중단 (무한루프 방지)
-			if (!next || next === cur) break;
-
-			cur = next;
+	function rangeByUnit(today, unit) {
+		if (unit === 'day') {
+			return { from: addDays(today, -6), to: today };
 		}
-		return out;
+		if (unit === 'week') {
+			return { from: addDays(today, -7 * 7), to: today }; // 8주
+		}
+		if (unit === 'month') {
+			const d = new Date(today + 'T00:00:00');
+			d.setMonth(d.getMonth() - 11);
+			return { from: isoDate(d), to: today };
+		}
+		if (unit === 'year') {
+			const d = new Date(today + 'T00:00:00');
+			d.setFullYear(d.getFullYear() - 4);
+			return { from: isoDate(d), to: today };
+		}
+		return { from: addDays(today, -6), to: today };
 	}
 
-	function StatsLineChart({ labels, series }) {
-		// labels: ['2025-12-10', ...]
-		// series: [{ name:'조회수', values:[...numbers] }, { name:'방문자', values:[...numbers] }]
+function dateRangeArray(from, to, maxDays = 400) {
+	if (!from || !to) return [];
+	if (from > to) return [];
+
+	const out = [];
+	let cur = from;
+
+	for (let guard = 0; guard < maxDays && cur <= to; guard++) {
+		out.push(cur);
+		const next = addDays(cur, 1);
+		if (!next || next === cur) break;
+		cur = next;
+	}
+	return out;
+}
+
+	function aggStats(stats, from, to, unit) {
+		const days = dateRangeArray(from, to, unit === 'year' ? 2500 : 400);
+
+		const groupKeyOf = (dayKey) => {
+			if (unit === 'day') return dayKey;
+			if (unit === 'month') return dayKey.slice(0, 7);
+			if (unit === 'year') return dayKey.slice(0, 4);
+
+			const d = new Date(dayKey + 'T00:00:00');
+			const dow = d.getDay();
+			const diffToMon = (dow + 6) % 7;
+			d.setDate(d.getDate() - diffToMon);
+			return isoDate(d);
+		};
+
+		const map = new Map();
+
+		for (const dayKey of days) {
+			const gk = groupKeyOf(dayKey);
+			const row = stats?.[dayKey] || { views: 0, visitors: 0 };
+
+			const cur = map.get(gk) || { views: 0, visitors: 0 };
+			cur.views += Number(row.views || 0);
+			cur.visitors += Number(row.visitors || 0);
+			map.set(gk, cur);
+		}
+
+		const labels = Array.from(map.keys()).sort();
+
+		// ✅ 표에서 쓰기 좋은 rows 추가
+		const rows = labels.map((k) => ({
+			key: k,
+			views: map.get(k)?.views ?? 0,
+			visitors: map.get(k)?.visitors ?? 0,
+		}));
+
+		return {
+			labels,
+			views: labels.map((k) => map.get(k)?.views ?? 0),
+			visitors: labels.map((k) => map.get(k)?.visitors ?? 0),
+			rows, // ✅ 추가
+		};
+	}
+
+	function StatsLineChart({ labels, series, unit = 'day' }) {
+		const [hoverIdx, setHoverIdx] = useState(null); // 마우스 이동으로 잡히는 idx
+		const [pinnedIdx, setPinnedIdx] = useState(null); // 모바일/클릭 고정 idx
+
 		const W = 900;
 		const H = 240;
 		const PAD_L = 44;
@@ -1103,11 +1225,69 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 			return values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(2)} ${y(v).toFixed(2)}`).join(' ');
 		};
 
-		// x축 라벨은 너무 많으면 4~6개만 찍기
-		const tickCount = Math.min(6, labels.length);
-		const tickIdx = Array.from({ length: tickCount }, (_, k) =>
-			Math.round((k * (labels.length - 1)) / Math.max(1, tickCount - 1))
-		);
+		const formatLabel = (k) => {
+			if (!k) return '';
+			if (unit === 'day') return k.slice(5); // MM-DD
+			if (unit === 'week') return k.slice(5); // MM-DD
+			if (unit === 'month') return k.slice(2); // YY-MM
+			if (unit === 'year') return k; // YYYY
+			return k;
+		};
+
+		const tickIdx = useMemo(() => {
+			if (labels.length <= 14) return labels.map((_, i) => i);
+			const tickCount = 8;
+			const idx = Array.from({ length: tickCount }, (_, k) =>
+				Math.round((k * (labels.length - 1)) / Math.max(1, tickCount - 1))
+			);
+			return [...new Set(idx)];
+		}, [labels]);
+
+		// ✅ 실제 표시할 idx: 고정이 있으면 pinned가 우선
+		const activeIdx = pinnedIdx != null ? pinnedIdx : hoverIdx;
+
+		// ✅ 마우스 X좌표 -> 가장 가까운 인덱스 찾기
+		function nearestIndexFromSvgX(svgX) {
+			const plotLeft = PAD_L;
+			const plotRight = W - PAD_R;
+			const clamped = Math.max(plotLeft, Math.min(plotRight, svgX));
+			const ratio = (clamped - plotLeft) / Math.max(1, plotRight - plotLeft);
+			const idx = Math.round(ratio * Math.max(0, labels.length - 1));
+			return Math.max(0, Math.min(labels.length - 1, idx));
+		}
+
+		// ✅ 이벤트 좌표를 SVG viewBox 좌표로 변환
+		function getSvgPoint(e) {
+			const svg = e.currentTarget.ownerSVGElement || e.currentTarget; // rect에서 올 때 ownerSVGElement
+			const pt = svg.createSVGPoint();
+			pt.x = e.clientX;
+			pt.y = e.clientY;
+			const ctm = svg.getScreenCTM();
+			if (!ctm) return { x: 0, y: 0 };
+			const inv = ctm.inverse();
+			const p = pt.matrixTransform(inv);
+			return { x: p.x, y: p.y };
+		}
+
+		function handleMove(e) {
+			// pinned 상태면 마우스로 흔들리지 않게 (원하면 유지/갱신 선택 가능)
+			if (pinnedIdx != null) return;
+			const p = getSvgPoint(e);
+			const idx = nearestIndexFromSvgX(p.x);
+			setHoverIdx(idx);
+		}
+
+		function handleLeave() {
+			if (pinnedIdx != null) return;
+			setHoverIdx(null);
+		}
+
+		// ✅ 모바일 탭/클릭 고정: 같은 지점 다시 누르면 해제
+		function handlePointerDown(e) {
+			const p = getSvgPoint(e);
+			const idx = nearestIndexFromSvgX(p.x);
+			setPinnedIdx((prev) => (prev === idx ? null : idx));
+		}
 
 		return (
 			<div className="w-full overflow-x-auto rounded border border-slate-700/60 bg-slate-950/20">
@@ -1130,7 +1310,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 					<line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="currentColor" opacity="0.25" />
 					<line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="currentColor" opacity="0.25" />
 
-					{/* 시리즈 선들 (색 지정 안 하랬던 룰이 “차트 색 고정하지 말기”면 여기서도 기본 currentColor로 통일) */}
+					{/* 시리즈 선 */}
 					{series.map((s, idx) => (
 						<path
 							key={s.name}
@@ -1142,15 +1322,91 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 						/>
 					))}
 
+					{/* ✅ 그래프 영역 전체 hover/tap 이벤트 받는 투명 레이어 */}
+					<rect
+						x={PAD_L}
+						y={PAD_T}
+						width={W - PAD_L - PAD_R}
+						height={H - PAD_T - PAD_B}
+						fill="transparent"
+						onMouseMove={handleMove}
+						onMouseLeave={handleLeave}
+						onPointerDown={handlePointerDown} // 모바일 탭 고정 + 데스크탑 클릭도 OK
+						style={{ cursor: 'crosshair' }}
+					/>
+
+					{/* ✅ vertical guide line */}
+					{activeIdx != null && (
+						<line
+							x1={x(activeIdx)}
+							y1={PAD_T}
+							x2={x(activeIdx)}
+							y2={H - PAD_B}
+							stroke="currentColor"
+							opacity="0.18"
+							strokeDasharray="3 3"
+							pointerEvents="none"
+						/>
+					)}
+
+					{/* ✅ 강조 점 (툴팁/점은 pointer-events none으로 깜빡임 방지) */}
+					{activeIdx != null && (
+						<g pointerEvents="none">
+							{series.map((s, idx) => (
+								<circle
+									key={s.name}
+									cx={x(activeIdx)}
+									cy={y(s.values[activeIdx] ?? 0)}
+									r={idx === 0 ? 4 : 3}
+									fill="currentColor"
+									opacity={idx === 0 ? 0.95 : 0.6}
+								/>
+							))}
+						</g>
+					)}
+
 					{/* x축 라벨 */}
-					{tickIdx.map((i) => {
-						const label = labels[i]?.slice(5); // MM-DD
-						return (
-							<text key={i} x={x(i)} y={H - 10} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.65">
-								{label}
-							</text>
-						);
-					})}
+					{tickIdx.map((i) => (
+						<text key={i} x={x(i)} y={H - 10} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.65">
+							{formatLabel(labels[i])}
+						</text>
+					))}
+
+					{/* ✅ 툴팁 */}
+					{activeIdx != null &&
+						(() => {
+							const label = labels[activeIdx] || '';
+							const views = series?.[0]?.values?.[activeIdx] ?? 0;
+							const visitors = series?.[1]?.values?.[activeIdx] ?? 0;
+
+							// 화면 밖으로 안 나가게 위치 조절
+							const tooltipW = 170;
+							const tooltipH = 46;
+							const baseX = x(activeIdx) + 12;
+							const tooltipX = Math.min(baseX, W - PAD_R - tooltipW);
+							const tooltipY = PAD_T + 8;
+
+							return (
+								<g pointerEvents="none">
+									<rect
+										x={tooltipX}
+										y={tooltipY}
+										width={tooltipW}
+										height={tooltipH}
+										rx={8}
+										fill="black"
+										opacity="0.75"
+									/>
+									<text x={tooltipX + 10} y={tooltipY + 18} fontSize="11" fill="white">
+										{label}
+										{pinnedIdx != null ? ' (고정됨)' : ''}
+									</text>
+									<text x={tooltipX + 10} y={tooltipY + 34} fontSize="11" fill="white">
+										조회 {views} · 방문 {visitors}
+									</text>
+								</g>
+							);
+						})()}
 				</svg>
 
 				{/* 범례 */}
@@ -1159,17 +1415,21 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 						<span key={s.name} className="inline-flex items-center gap-2">
 							<span
 								className="inline-block rounded-sm"
-								style={{
-									width: 10,
-									height: 3,
-									background: 'currentColor',
-									opacity: idx === 0 ? 0.95 : 0.55,
-								}}
+								style={{ width: 10, height: 3, background: 'currentColor', opacity: idx === 0 ? 0.95 : 0.55 }}
 							/>
 							{s.name}
 						</span>
 					))}
 				</div>
+
+				{/* (선택) 고정 해제 버튼: 모바일에서 유용 */}
+				{pinnedIdx != null && (
+					<div className="px-3 pb-2">
+						<button type="button" className="admin-submit" onClick={() => setPinnedIdx(null)}>
+							툴팁 고정 해제
+						</button>
+					</div>
+				)}
 			</div>
 		);
 	}
@@ -1355,19 +1615,27 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 									const from = rangeFromByEvent[id] || addDays(today, -6);
 									const to = rangeToByEvent[id] || today;
 
-									const keys = dateRangeArray(from, to);
+									const unit = unitByEvent[id] || 'day';
+
+									const maxDays =
+										unit === 'year'
+											? 2500 // 5~6년 커버(윤년 포함해도 충분)
+											: unit === 'month'
+											? 450 // 12개월 정도는 400도 되지만 여유
+											: unit === 'week'
+											? 700 // 8주면 사실 400도 되지만 여유
+											: 400;
+
+									const keys = dateRangeArray(from, to, maxDays);
 									const sum = sumStats(stats, keys);
 
-									// 표는 최근 14일을 보여주자(데이터가 없으면 0)
-									const tableKeys = lastNDaysKeys(14).slice().reverse(); // 최신이 위로 오게
+									const tableKeys = lastNDaysKeys(14).slice().reverse(); // 최신이 위로
 
-									// 미니 캘린더: 최근 30일
-									const calKeys = lastNDaysKeys(30);
+									const agg = aggStats(stats, from, to, unit); // aggStats 내부도 days 만들면 똑같이 영향받음
 
-									// 그래프용 데이터 (기간 선택 기반)
-									const chartLabels = keys;
-									const chartViews = keys.map((k) => Number(stats?.[k]?.views || 0));
-									const chartVisitors = keys.map((k) => Number(stats?.[k]?.visitors || 0));
+									const chartLabels = agg.labels;
+									const chartViews = agg.views;
+									const chartVisitors = agg.visitors;
 
 									return (
 										<div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4 space-y-3">
@@ -1400,21 +1668,29 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 															className="admin-input"
 														/>
 													</label>
-
-													<button
-														type="button"
-														className="admin-submit sm:self-end"
-														onClick={() => {
-															const t = isoDate();
-															setRangeToByEvent((p) => ({ ...p, [id]: t }));
-															setRangeFromByEvent((p) => ({ ...p, [id]: addDays(t, -6) }));
-														}}
-													>
-														최근 7일
-													</button>
 												</div>
 											</div>
+											<div className="flex flex-wrap gap-2">
+												{['day', 'week', 'month', 'year'].map((u) => (
+													<button
+														key={u}
+														type="button"
+														className={
+															'admin-submit ' + (unit === u ? 'ring-1 ring-slate-300' : 'opacity-80 hover:opacity-100')
+														}
+														onClick={() => {
+															const today = isoDate();
+															const r = rangeByUnit(today, u);
 
+															setUnitByEvent((p) => ({ ...p, [id]: u }));
+															setRangeFromByEvent((p) => ({ ...p, [id]: r.from }));
+															setRangeToByEvent((p) => ({ ...p, [id]: r.to }));
+														}}
+													>
+														{u === 'day' ? '일별' : u === 'week' ? '주별' : u === 'month' ? '월별' : '년도별'}
+													</button>
+												))}
+											</div>
 											{/* 기간 합계 */}
 											<div className="flex flex-wrap items-center gap-2 text-xs">
 												<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
@@ -1424,7 +1700,10 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 													선택 기간 합계 · 방문자 {sum.visitors}
 												</span>
 												<span className="text-slate-400">
-													({from} ~ {to})
+													({from} ~ {to} : {unit === 'day' && '최근 7일 기준'}
+													{unit === 'week' && '최근 8주 기준'}
+													{unit === 'month' && '최근 12개월 기준'}
+													{unit === 'year' && '최근 5년 기준'})
 												</span>
 											</div>
 
@@ -1433,6 +1712,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 												<div className="text-xs text-slate-300 mb-2">선택 기간 그래프</div>
 												<StatsLineChart
 													labels={chartLabels}
+													unit={unit}
 													series={[
 														{ name: '조회수', values: chartViews },
 														{ name: '방문자', values: chartVisitors },
@@ -1440,55 +1720,47 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 												/>
 											</div>
 
-											{/* 미니 캘린더(최근 30일) */}
+											{/* 날짜별/주별/월별/년도별 표 (그래프와 동일 기준) */}
 											<div>
-												<div className="text-xs text-slate-300 mb-2">최근 30일</div>
-												<div className="grid grid-cols-10 gap-1">
-													{calKeys.map((k) => {
-														const v = Number(stats?.[k]?.views || 0);
-														const u = Number(stats?.[k]?.visitors || 0);
-														const active = v > 0 || u > 0;
-														return (
-															<div
-																key={k}
-																title={`${k}\n조회수 ${v}\n방문자 ${u}`}
-																className={
-																	'h-7 rounded border text-[10px] flex items-center justify-center ' +
-																	(active
-																		? 'border-slate-600 bg-slate-800 text-slate-100'
-																		: 'border-slate-800 bg-slate-950/30 text-slate-500')
-																}
-															>
-																{k.slice(8)}
-															</div>
-														);
-													})}
+												<div className="text-xs text-slate-300 mb-2">
+													{unit === 'day'
+														? '일별 상세'
+														: unit === 'week'
+														? '주별 상세'
+														: unit === 'month'
+														? '월별 상세'
+														: '년도별 상세'}
 												</div>
-											</div>
 
-											{/* 날짜별 표(최근 14일) */}
-											<div>
-												<div className="text-xs text-slate-300 mb-2">최근 14일 상세</div>
 												<div className="overflow-x-auto rounded border border-slate-700/60">
 													<table className="min-w-full text-xs">
 														<thead className="bg-slate-800/60 text-slate-200">
 															<tr>
-																<th className="px-3 py-2 text-left font-medium">날짜</th>
+																<th className="px-3 py-2 text-left font-medium">
+																	{unit === 'day'
+																		? '날짜'
+																		: unit === 'week'
+																		? '주(시작일)'
+																		: unit === 'month'
+																		? '월'
+																		: '년도'}
+																</th>
 																<th className="px-3 py-2 text-right font-medium">조회수</th>
 																<th className="px-3 py-2 text-right font-medium">방문자</th>
 															</tr>
 														</thead>
+
 														<tbody>
-															{tableKeys.map((k) => {
-																const row = stats?.[k] || { views: 0, visitors: 0 };
-																return (
-																	<tr key={k} className="border-t border-slate-800/60 text-slate-200">
-																		<td className="px-3 py-2 text-slate-300">{k}</td>
-																		<td className="px-3 py-2 text-right">{Number(row.views || 0)}</td>
-																		<td className="px-3 py-2 text-right">{Number(row.visitors || 0)}</td>
+															{agg.rows
+																.slice()
+																.reverse()
+																.map((r) => (
+																	<tr key={r.key} className="border-t border-slate-800/60 text-slate-200">
+																		<td className="px-3 py-2 text-slate-300">{r.key}</td>
+																		<td className="px-3 py-2 text-right">{Number(r.views || 0)}</td>
+																		<td className="px-3 py-2 text-right">{Number(r.visitors || 0)}</td>
 																	</tr>
-																);
-															})}
+																))}
 														</tbody>
 													</table>
 												</div>

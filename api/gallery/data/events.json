@@ -4,13 +4,13 @@
         "note": "",
         "photos": [
             {
-                "full": "\/gallery-images\/test\/40_full.webp",
-                "thumb": "\/gallery-images\/test\/40_thumb.webp",
+                "full": "\/gallery-images\/test\/35_full.webp",
+                "thumb": "\/gallery-images\/test\/35_thumb.webp",
                 "alt": "테스트 - 이미지"
             },
             {
-                "full": "\/gallery-images\/test\/35_full.webp",
-                "thumb": "\/gallery-images\/test\/35_thumb.webp",
+                "full": "\/gallery-images\/test\/40_full.webp",
+                "thumb": "\/gallery-images\/test\/40_thumb.webp",
                 "alt": "테스트 - 이미지"
             },
             {
@@ -34,11 +34,11 @@
                 "alt": "테스트 - 이미지"
             }
         ],
-        "views": 5,
+        "views": 7,
         "visitors": 1,
         "stats": {
             "2025-12-16": {
-                "views": 5,
+                "views": 7,
                 "visitors": 1
             }
         }
