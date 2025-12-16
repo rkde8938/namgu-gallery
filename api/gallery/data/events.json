@@ -39,11 +39,11 @@
                 "alt": "테스트 - 이미지"
             }
         ],
-        "views": 7,
+        "views": 11,
         "visitors": 1,
         "stats": {
             "2025-12-16": {
-                "views": 7,
+                "views": 11,
                 "visitors": 1
             }
         }
@@ -78,7 +78,14 @@
                 "alt": "테스트2 - 이미지"
             }
         ],
-        "views": 0
+        "views": 1,
+        "visitors": 1,
+        "stats": {
+            "2025-12-16": {
+                "views": 1,
+                "visitors": 1
+            }
+        }
     },
     "test3": {
         "title": "테스트3",

@@ -612,7 +612,7 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 	const [files, setFiles] = useState([]);
 	const [busy, setBusy] = useState(false);
 	const [msg, setMsg] = useState('');
-  const [isDropping, setIsDropping] = useState(false);
+	const [isDropping, setIsDropping] = useState(false);
 
 	const handleFileChange = (e) => {
 		setFilesFromList(e.target.files);
@@ -662,7 +662,7 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 		}
 	};
 
-  function setFilesFromList(list) {
+	function setFilesFromList(list) {
 		const arr = Array.from(list || []).filter((f) => f && f.type?.startsWith('image/'));
 		setFiles(arr);
 	}
@@ -898,6 +898,69 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 
 	const [isDroppingByEvent, setIsDroppingByEvent] = useState({});
 
+	// ✅ Toast (alert 대체)
+	const [toasts, setToasts] = useState([]);
+	const toastSeqRef = useRef(1);
+	const toastTimersRef = useRef(new Map());
+
+	function removeToast(id) {
+		const t = toastTimersRef.current.get(id);
+		if (t) {
+			clearTimeout(t);
+			toastTimersRef.current.delete(id);
+		}
+		setToasts((prev) => prev.filter((x) => x.id !== id));
+	}
+
+	function pushToast(message, type = 'info', ms = 2200) {
+		const id = toastSeqRef.current++;
+		setToasts((prev) => [...prev, { id, message: String(message || ''), type }]);
+
+		const t = window.setTimeout(() => removeToast(id), ms);
+		toastTimersRef.current.set(id, t);
+	}
+
+	useEffect(() => {
+		return () => {
+			toastTimersRef.current.forEach((t) => clearTimeout(t));
+			toastTimersRef.current.clear();
+		};
+	}, []);
+
+	const toastNode = (
+		<div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+			{toasts.map((t) => {
+				const cls =
+					t.type === 'success'
+						? 'border-emerald-500/40 bg-emerald-900/70 text-emerald-50'
+						: t.type === 'error'
+						? 'border-red-500/40 bg-red-900/70 text-red-50'
+						: t.type === 'warn'
+						? 'border-amber-500/40 bg-amber-900/70 text-amber-50'
+						: 'border-slate-600/50 bg-slate-900/80 text-slate-50';
+
+				return (
+					<div
+						key={t.id}
+						role="status"
+						aria-live="polite"
+						className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-3 py-2 shadow-lg backdrop-blur ${cls}`}
+					>
+						<div className="text-sm leading-snug whitespace-pre-wrap">{t.message}</div>
+						<button
+							type="button"
+							className="ml-auto -mr-1 -mt-1 px-2 py-1 text-slate-200/80 hover:text-slate-50"
+							onClick={() => removeToast(t.id)}
+							aria-label="닫기"
+						>
+							×
+						</button>
+					</div>
+				);
+			})}
+		</div>
+	);
+
 	// 편집 모드 진입할 때 draft 초기화
 	function openEditor(eventId) {
 		const ev = events[eventId];
@@ -973,9 +1036,20 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 				body: new URLSearchParams({ event_id: eventId }),
 			});
 			if (!data.ok) throw new Error(data.error || '삭제 실패');
+
 			setEvents(data.events || {});
+
+			// ✅ UI 상태도 같이 정리 (있으면만 동작)
+			try {
+				setSelectedEventId?.((cur) => (cur === eventId ? null : cur));
+			} catch {}
+			try {
+				setOpenIndex?.(null);
+			} catch {}
+
+			pushToast('행사가 삭제되었습니다.', 'success');
 		} catch (err) {
-			alert(err.message);
+			pushToast(err.message, 'error', 3500);
 		}
 	}
 
@@ -1008,7 +1082,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 				[eventId]: false,
 			}));
 		} catch (err) {
-			alert(err.message);
+			pushToast(err.message, 'error', 3500);
 		}
 	}
 
@@ -1053,11 +1127,12 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	async function handleAddPhotos(eventId, ev) {
 		const files = uploadFiles[eventId] || [];
 		if (files.length === 0) {
-			alert('추가할 이미지를 선택해 주세요.');
+			pushToast('추가할 이미지를 선택해 주세요.', 'warn');
 			return;
 		}
 
-		// 🔴 여기! 업로드 시작
+		const oldLen = (events[eventId]?.photos || []).length;
+
 		setUploadBusyByEvent((p) => ({ ...p, [eventId]: true }));
 
 		try {
@@ -1065,9 +1140,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 			formData.append('event_id', eventId);
 			formData.append('title', ev.title || eventId);
 
-			files.forEach((file) => {
-				formData.append('photos[]', file);
-			});
+			files.forEach((file) => formData.append('photos[]', file));
 
 			const data = await fetchJson('/api/gallery/upload_event.php', {
 				method: 'POST',
@@ -1076,14 +1149,22 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 
 			if (!data.ok) throw new Error(data.error || '이미지 추가 실패');
 
-			setEvents(data.events || {});
+			const newEvents = data.events || {};
+			setEvents(newEvents);
 			setUploadFiles((p) => ({ ...p, [eventId]: [] }));
 
-			alert('이미지 추가 완료!');
+			// ✅ 업로드 직후: 새로 늘어난 사진 인덱스를 draft에 추가해서 화면에 즉시 뜨게
+			const newLen = (newEvents[eventId]?.photos || []).length;
+			setPhotoOrderDrafts((prev) => {
+				const base = prev[eventId] || Array.from({ length: oldLen }, (_, i) => i);
+				const added = Array.from({ length: Math.max(0, newLen - oldLen) }, (_, k) => oldLen + k);
+				return { ...prev, [eventId]: [...base, ...added] };
+			});
+
+			pushToast('이미지 추가 완료!', 'success');
 		} catch (err) {
-			alert(err.message);
+			pushToast(err.message, 'error', 3500);
 		} finally {
-			// 🟢 여기! 업로드 종료 (성공/실패 공통)
 			setUploadBusyByEvent((p) => ({ ...p, [eventId]: false }));
 		}
 	}
@@ -1191,9 +1272,9 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 				[eventId]: false,
 			}));
 
-			alert('저장되었습니다.');
+			pushToast('저장되었습니다.', 'success');
 		} catch (err) {
-			alert(err.message);
+			pushToast(err.message, 'error', 3500);
 		}
 	}
 
@@ -1573,469 +1654,483 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 
 	if (entries.length === 0) {
 		return (
-			<section className="admin-upload p-6 rounded-lg bg-slate-800/40 border border-slate-700/50 text-center">
-				<h2 className="admin-title text-xl font-semibold text-white mb-2">이벤트 관리</h2>
+			<>
+				<section className="admin-upload p-6 rounded-lg bg-slate-800/40 border border-slate-700/50 text-center">
+					<h2 className="admin-title text-xl font-semibold text-white mb-2">이벤트 관리</h2>
 
-				<p className="admin-desc text-sm text-slate-300">등록된 행사가 없습니다.</p>
+					<p className="admin-desc text-sm text-slate-300">등록된 행사가 없습니다.</p>
 
-				{/* 새 행사 추가 버튼 있을 경우 표시 */}
-				{onClickNewEvent && (
-					<button type="button" onClick={onClickNewEvent} className="admin-submit mt-4">
-						+ 새 행사 추가
-					</button>
-				)}
-			</section>
+					{/* 새 행사 추가 버튼 있을 경우 표시 */}
+					{onClickNewEvent && (
+						<button type="button" onClick={onClickNewEvent} className="admin-submit mt-4">
+							+ 새 행사 추가
+						</button>
+					)}
+				</section>
+
+				{toastNode}
+			</>
 		);
 	}
 
 	return (
-		<section className="admin-upload">
-			{/* 상단 헤더: 이벤트 관리 제목 + 새 행사 추가 버튼 */}
-			<div className="flex items-start justify-between gap-6 mb-6 p-4 rounded-lg bg-slate-800/40 border border-slate-700/50">
-				{/* 제목 / 설명 */}
-				<div className="flex-1">
-					<h2 className="admin-title text-xl font-semibold text-white mb-2">이벤트 관리</h2>
+		<>
+			<section className="admin-upload">
+				{/* 상단 헤더: 이벤트 관리 제목 + 새 행사 추가 버튼 */}
+				<div className="flex items-start justify-between gap-6 mb-6 p-4 rounded-lg bg-slate-800/40 border border-slate-700/50">
+					{/* 제목 / 설명 */}
+					<div className="flex-1">
+						<h2 className="admin-title text-xl font-semibold text-white mb-2">이벤트 관리</h2>
 
-					<p className="admin-desc text-sm text-slate-300 leading-relaxed">
-						행사를 클릭하면 편집 모드로 열립니다. 메모, 이미지 추가/삭제, 순서 변경을 할 수 있습니다.
-						<br />
-						이미지 순서는 드래그 앤 드랍으로 변경하고,
-						<code className="px-1 mx-1 bg-slate-700 rounded text-slate-200">변경 사항 저장</code>
-						버튼을 눌러야 서버에 반영됩니다.
-					</p>
+						<p className="admin-desc text-sm text-slate-300 leading-relaxed">
+							행사를 클릭하면 편집 모드로 열립니다. 메모, 이미지 추가/삭제, 순서 변경을 할 수 있습니다.
+							<br />
+							이미지 순서는 드래그 앤 드랍으로 변경하고,
+							<code className="px-1 mx-1 bg-slate-700 rounded text-slate-200">변경 사항 저장</code>
+							버튼을 눌러야 서버에 반영됩니다.
+						</p>
+					</div>
+
+					{/* 새 행사 추가 버튼 */}
+					{onClickNewEvent && (
+						<button type="button" onClick={onClickNewEvent} className="admin-submit whitespace-nowrap self-start">
+							+ 새 행사 추가
+						</button>
+					)}
 				</div>
 
-				{/* 새 행사 추가 버튼 */}
-				{onClickNewEvent && (
-					<button type="button" onClick={onClickNewEvent} className="admin-submit whitespace-nowrap self-start">
-						+ 새 행사 추가
-					</button>
-				)}
-			</div>
+				{entries.map(([id, ev]) => {
+					const safeStats = typeof ev.stats === 'object' && ev.stats !== null ? ev.stats : {};
+					const qrUrl = `${qrBaseUrl}/?event=${encodeURIComponent(id)}`;
+					const isActive = activeEventId === id;
+					const files = uploadFiles[id] || [];
 
-			{entries.map(([id, ev]) => {
-				const safeStats = typeof ev.stats === 'object' && ev.stats !== null ? ev.stats : {};
-				const qrUrl = `${qrBaseUrl}/?event=${encodeURIComponent(id)}`;
-				const isActive = activeEventId === id;
-				const files = uploadFiles[id] || [];
+					const basePhotos = ev.photos || [];
+					const order = photoOrderDrafts[id] || basePhotos.map((_, idx) => idx);
+					const orderedPhotos = order.map((idx) => basePhotos[idx]).filter(Boolean);
 
-				const basePhotos = ev.photos || [];
-				const order = photoOrderDrafts[id] || basePhotos.map((_, idx) => idx);
-				const orderedPhotos = order.map((idx) => basePhotos[idx]).filter(Boolean);
+					const firstPhoto = basePhotos[0];
+					const thumbSrc = firstPhoto ? firstPhoto.thumb || firstPhoto.full : null;
 
-				const firstPhoto = basePhotos[0];
-				const thumbSrc = firstPhoto ? firstPhoto.thumb || firstPhoto.full : null;
-
-				return (
-					<div key={id} className="admin-event-block">
-						{/* 이벤트 헤더 */}
-						<div className="admin-event-header cursor-pointer" onClick={() => toggleActive(id)}>
-							<div className="admin-event-header-main">
-								<div className="admin-event-thumb">
-									{thumbSrc ? (
-										<img
-											src={thumbSrc}
-											alt={firstPhoto?.alt || ev.title}
-											loading="lazy"
-											decoding="async"
-											className="w-full h-full object-cover"
-										/>
-									) : (
-										<span className="admin-event-thumb-fallback">
-											No
-											<br />
-											Image
-										</span>
-									)}
-								</div>
-
-								<div className="admin-event-header-text">
-									<div className="flex flex-col gap-1">
-										<div className="flex items-center gap-2">
-											<strong className="text-sm md:text-base">{ev.title}</strong>
-											<span className="admin-event-meta text-xs text-slate-400">({id})</span>
-										</div>
-										{(() => {
-											const stats = safeStats || {};
-											const todayKey = isoDate();
-											const todaySum = sumStats(stats, [todayKey]);
-											const last7Sum = sumStats(stats, lastNDaysKeys(7));
-
-											return (
-												<p className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
-													<span>이미지 {ev.photos?.length ?? 0}장</span>
-													<span>·</span>
-													<span>총 조회수 {Number(ev.views || 0)}회</span>
-													<span>·</span>
-													<span>총 방문자 {Number(ev.visitors || 0)}명</span>
-
-													<span className="ml-1 inline-flex items-center gap-1 rounded bg-slate-800/70 border border-slate-700 px-2 py-0.5 text-slate-200">
-														오늘 조회 {todaySum.views} · 방문자 {todaySum.visitors}
-													</span>
-
-													<span className="inline-flex items-center gap-1 rounded bg-slate-800/70 border border-slate-700 px-2 py-0.5 text-slate-200">
-														최근7일 조회 {last7Sum.views} · 방문자 {last7Sum.visitors}
-													</span>
-
-													<span className="text-slate-500">· 클릭하면 상세 편집</span>
-												</p>
-											);
-										})()}
-									</div>
-								</div>
-							</div>
-
-							<button
-								type="button"
-								className="admin-submit"
-								onClick={(e) => {
-									e.stopPropagation();
-									handleDeleteEvent(id);
-								}}
-							>
-								행사 전체 삭제
-							</button>
-						</div>
-
-						{/* 이벤트 바디 (펼쳐졌을 때) */}
-						{isActive && (
-							<div className="admin-event-body mt-3 space-y-4">
-								{/* QR 링크 */}
-								<div className="admin-row">
-									<p className="admin-desc text-xs md:text-sm">
-										QR 링크:{' '}
-										<code className="bg-slate-800/80 px-2 py-1 rounded text-[11px] md:text-xs break-all">{qrUrl}</code>
-									</p>
-								</div>
-
-								{/* 비공개 메모 */}
-								<div className="admin-row">
-									<label className="w-full flex flex-col gap-1">
-										<span className="text-xs font-medium text-slate-200">비공개 메모</span>
-										<textarea
-											rows={2}
-											className="admin-textarea"
-											value={noteDrafts[id] ?? ''}
-											onChange={(e) => handleNoteChange(id, e.target.value)}
-											placeholder="이 행사를 관리할 때 참고할 메모를 남겨두세요. (지면소식지용 비고 등)"
-										/>
-									</label>
-								</div>
-
-								{/* 통계: 기간 선택 + 합계 + 날짜별 */}
-								{(() => {
-									if (!rangeFromByEvent[id] || !rangeToByEvent[id]) {
-										return <div className="text-xs text-slate-400">통계 데이터를 준비 중입니다…</div>;
-									}
-									const stats = safeStats || {};
-									const today = isoDate();
-									const from = rangeFromByEvent[id] || addDays(today, -6);
-									const to = rangeToByEvent[id] || today;
-
-									const unit = unitByEvent[id] || 'day';
-
-									const maxDays =
-										unit === 'year'
-											? 2500 // 5~6년 커버(윤년 포함해도 충분)
-											: unit === 'month'
-											? 450 // 12개월 정도는 400도 되지만 여유
-											: unit === 'week'
-											? 700 // 8주면 사실 400도 되지만 여유
-											: 400;
-
-									const keys = dateRangeArray(from, to, maxDays);
-									const sum = sumStats(stats, keys);
-
-									const tableKeys = lastNDaysKeys(14).slice().reverse(); // 최신이 위로
-
-									const agg = aggStats(stats, from, to, unit); // aggStats 내부도 days 만들면 똑같이 영향받음
-
-									const chartLabels = agg.labels;
-									const chartViews = agg.views;
-									const chartVisitors = agg.visitors;
-
-									return (
-										<div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4 space-y-3">
-											<div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-												<div>
-													<h3 className="text-sm font-semibold text-white">방문 통계</h3>
-													<p className="text-xs text-slate-300">
-														기간을 선택하면 합계를 보여주고, 아래에서 날짜별 상세를 확인할 수 있어요.
-													</p>
-												</div>
-
-												{/* 기간 선택 */}
-												<div className="flex flex-col sm:flex-row sm:items-end gap-2">
-													<label className="flex flex-col gap-1">
-														<span className="text-[11px] text-slate-300">시작</span>
-														<input
-															type="date"
-															value={from}
-															onChange={(e) => setRangeFromByEvent((p) => ({ ...p, [id]: e.target.value }))}
-															className="admin-input"
-														/>
-													</label>
-
-													<label className="flex flex-col gap-1">
-														<span className="text-[11px] text-slate-300">끝</span>
-														<input
-															type="date"
-															value={to}
-															onChange={(e) => setRangeToByEvent((p) => ({ ...p, [id]: e.target.value }))}
-															className="admin-input"
-														/>
-													</label>
-												</div>
-											</div>
-											<div className="flex flex-wrap gap-2">
-												{['day', 'week', 'month', 'year'].map((u) => (
-													<button
-														key={u}
-														type="button"
-														className={
-															'admin-submit ' + (unit === u ? 'ring-1 ring-slate-300' : 'opacity-80 hover:opacity-100')
-														}
-														onClick={() => {
-															const today = isoDate();
-															const r = rangeByUnit(today, u);
-
-															setUnitByEvent((p) => ({ ...p, [id]: u }));
-															setRangeFromByEvent((p) => ({ ...p, [id]: r.from }));
-															setRangeToByEvent((p) => ({ ...p, [id]: r.to }));
-														}}
-													>
-														{u === 'day' ? '일별' : u === 'week' ? '주별' : u === 'month' ? '월별' : '년도별'}
-													</button>
-												))}
-											</div>
-											{/* 기간 합계 */}
-											<div className="flex flex-wrap items-center gap-2 text-xs">
-												<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
-													선택 기간 합계 · 조회수 {sum.views}
-												</span>
-												<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
-													선택 기간 합계 · 방문자 {sum.visitors}
-												</span>
-												<span className="text-slate-400">
-													({from} ~ {to} : {unit === 'day' && '최근 7일 기준'}
-													{unit === 'week' && '최근 8주 기준'}
-													{unit === 'month' && '최근 12개월 기준'}
-													{unit === 'year' && '최근 5년 기준'})
-												</span>
-											</div>
-
-											{/* 그래프 (선택 기간 기반) */}
-											<div className="mt-3">
-												<div className="text-xs text-slate-300 mb-2">선택 기간 그래프</div>
-												<StatsLineChart
-													labels={chartLabels}
-													unit={unit}
-													series={[
-														{ name: '조회수', values: chartViews },
-														{ name: '방문자', values: chartVisitors },
-													]}
-												/>
-											</div>
-
-											{/* 날짜별/주별/월별/년도별 표 (그래프와 동일 기준) */}
-											<div>
-												<div className="text-xs text-slate-300 mb-2">
-													{unit === 'day'
-														? '일별 상세'
-														: unit === 'week'
-														? '주별 상세'
-														: unit === 'month'
-														? '월별 상세'
-														: '년도별 상세'}
-												</div>
-
-												<div className="overflow-x-auto rounded border border-slate-700/60">
-													<table className="min-w-full text-xs">
-														<thead className="bg-slate-800/60 text-slate-200">
-															<tr>
-																<th className="px-3 py-2 text-left font-medium">
-																	{unit === 'day'
-																		? '날짜'
-																		: unit === 'week'
-																		? '주(시작일)'
-																		: unit === 'month'
-																		? '월'
-																		: '년도'}
-																</th>
-																<th className="px-3 py-2 text-right font-medium">조회수</th>
-																<th className="px-3 py-2 text-right font-medium">방문자</th>
-															</tr>
-														</thead>
-
-														<tbody>
-															{agg.rows
-																.slice()
-																.reverse()
-																.map((r) => (
-																	<tr key={r.key} className="border-t border-slate-800/60 text-slate-200">
-																		<td className="px-3 py-2 text-slate-300">{r.key}</td>
-																		<td className="px-3 py-2 text-right">{Number(r.views || 0)}</td>
-																		<td className="px-3 py-2 text-right">{Number(r.visitors || 0)}</td>
-																	</tr>
-																))}
-														</tbody>
-													</table>
-												</div>
-											</div>
-										</div>
-									);
-								})()}
-
-								{/* 추가 이미지 업로드 */}
-								<div className="admin-row">
-									<div className="w-full flex flex-col gap-2">
-										<div className="flex items-end justify-between gap-4">
-											<div className="flex-1 flex flex-col gap-2">
-												<span className="text-xs font-medium text-slate-200">추가 이미지 업로드</span>
-
-												{/* ✅ Dropzone */}
-												<div
-													onClick={(e) => e.stopPropagation()}
-													onDragOver={(e) => handleDragOverFiles(id, e)}
-													onDragLeave={(e) => handleDragLeaveFiles(id, e)}
-													onDrop={(e) => handleDropFiles(id, e)}
-													className={[
-														'rounded-lg border border-dashed px-3 py-3 transition',
-														isDroppingByEvent?.[id]
-															? 'border-slate-300 bg-slate-800/40'
-															: 'border-slate-700/70 bg-slate-950/20',
-													].join(' ')}
-												>
-													<div className="text-xs text-slate-300">파일을 여기로 드래그해서 놓기 (이미지 파일만)</div>
-
-													<div className="mt-2">
-														<FilePicker
-															id={`add-files-${id}`}
-															multiple
-															accept="image/*"
-															files={files}
-															onChange={(e) => handleFileChangeForEvent(id, e)}
-															buttonText="파일 선택"
-															helpText="이미지 여러 장 선택 가능"
-														/>
-													</div>
-												</div>
-											</div>
-
-											<button
-												type="button"
-												className="admin-submit shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-												disabled={!!uploadBusyByEvent?.[id]}
-												onClick={() => handleAddPhotos(id, ev)}
-											>
-												{uploadBusyByEvent?.[id] ? (
-													<>
-														<Spinner />
-														업로드 중…
-													</>
-												) : (
-													'이미지 추가'
-												)}
-											</button>
-										</div>
-
-										{files.length > 0 && (
-											<p className="admin-files text-xs text-slate-300">
-												선택된 파일: {files.map((f) => f.name).join(', ')}
-											</p>
+					return (
+						<div key={id} className="admin-event-block">
+							{/* 이벤트 헤더 */}
+							<div className="admin-event-header cursor-pointer" onClick={() => toggleActive(id)}>
+								<div className="admin-event-header-main">
+									<div className="admin-event-thumb">
+										{thumbSrc ? (
+											<img
+												src={thumbSrc}
+												alt={firstPhoto?.alt || ev.title}
+												loading="lazy"
+												decoding="async"
+												className="w-full h-full object-cover"
+											/>
+										) : (
+											<span className="admin-event-thumb-fallback">
+												No
+												<br />
+												Image
+											</span>
 										)}
 									</div>
+
+									<div className="admin-event-header-text">
+										<div className="flex flex-col gap-1">
+											<div className="flex items-center gap-2">
+												<strong className="text-sm md:text-base">{ev.title}</strong>
+												<span className="admin-event-meta text-xs text-slate-400">({id})</span>
+											</div>
+											{(() => {
+												const stats = safeStats || {};
+												const todayKey = isoDate();
+												const todaySum = sumStats(stats, [todayKey]);
+												const last7Sum = sumStats(stats, lastNDaysKeys(7));
+
+												return (
+													<p className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+														<span>이미지 {ev.photos?.length ?? 0}장</span>
+														<span>·</span>
+														<span>총 조회수 {Number(ev.views || 0)}회</span>
+														<span>·</span>
+														<span>총 방문자 {Number(ev.visitors || 0)}명</span>
+
+														<span className="ml-1 inline-flex items-center gap-1 rounded bg-slate-800/70 border border-slate-700 px-2 py-0.5 text-slate-200">
+															오늘 조회 {todaySum.views} · 방문자 {todaySum.visitors}
+														</span>
+
+														<span className="inline-flex items-center gap-1 rounded bg-slate-800/70 border border-slate-700 px-2 py-0.5 text-slate-200">
+															최근7일 조회 {last7Sum.views} · 방문자 {last7Sum.visitors}
+														</span>
+
+														<span className="text-slate-500">· 클릭하면 상세 편집</span>
+													</p>
+												);
+											})()}
+										</div>
+									</div>
 								</div>
 
-								{/* 이미지 목록 + 드래그 앤 드랍 순서 조정 + 삭제 */}
-								<div className="admin-photo-list mt-3 flex flex-col">
-									{orderedPhotos.map((photo, index) => {
-										const originalIndex = order[index]; // 서버 기준 인덱스
-										const isDragging = dragInfo.eventId === id && dragInfo.index === index;
-										const fname = fileNameFromUrl(photo.full || photo.thumb);
+								<button
+									type="button"
+									className="admin-submit"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleDeleteEvent(id);
+									}}
+								>
+									행사 전체 삭제
+								</button>
+							</div>
+
+							{/* 이벤트 바디 (펼쳐졌을 때) */}
+							{isActive && (
+								<div className="admin-event-body mt-3 space-y-4">
+									{/* QR 링크 */}
+									<div className="admin-row">
+										<p className="admin-desc text-xs md:text-sm">
+											QR 링크:{' '}
+											<code className="bg-slate-800/80 px-2 py-1 rounded text-[11px] md:text-xs break-all">
+												{qrUrl}
+											</code>
+										</p>
+									</div>
+
+									{/* 비공개 메모 */}
+									<div className="admin-row">
+										<label className="w-full flex flex-col gap-1">
+											<span className="text-xs font-medium text-slate-200">비공개 메모</span>
+											<textarea
+												rows={2}
+												className="admin-textarea"
+												value={noteDrafts[id] ?? ''}
+												onChange={(e) => handleNoteChange(id, e.target.value)}
+												placeholder="이 행사를 관리할 때 참고할 메모를 남겨두세요. (지면소식지용 비고 등)"
+											/>
+										</label>
+									</div>
+
+									{/* 통계: 기간 선택 + 합계 + 날짜별 */}
+									{(() => {
+										if (!rangeFromByEvent[id] || !rangeToByEvent[id]) {
+											return <div className="text-xs text-slate-400">통계 데이터를 준비 중입니다…</div>;
+										}
+										const stats = safeStats || {};
+										const today = isoDate();
+										const from = rangeFromByEvent[id] || addDays(today, -6);
+										const to = rangeToByEvent[id] || today;
+
+										const unit = unitByEvent[id] || 'day';
+
+										const maxDays =
+											unit === 'year'
+												? 2500 // 5~6년 커버(윤년 포함해도 충분)
+												: unit === 'month'
+												? 450 // 12개월 정도는 400도 되지만 여유
+												: unit === 'week'
+												? 700 // 8주면 사실 400도 되지만 여유
+												: 400;
+
+										const keys = dateRangeArray(from, to, maxDays);
+										const sum = sumStats(stats, keys);
+
+										const tableKeys = lastNDaysKeys(14).slice().reverse(); // 최신이 위로
+
+										const agg = aggStats(stats, from, to, unit); // aggStats 내부도 days 만들면 똑같이 영향받음
+
+										const chartLabels = agg.labels;
+										const chartViews = agg.views;
+										const chartVisitors = agg.visitors;
 
 										return (
-											<div
-												key={photo.full || photo.thumb || index}
-												className={
-													'flex items-start gap-3 rounded-md border border-slate-700 bg-slate-900/80 p-3 shadow-sm transition ' +
-													(isDragging ? 'opacity-50 border-indigo-400 shadow-md' : '')
-												}
-												draggable
-												onDragStart={() => handleDragStart(id, index)}
-												onDragOver={(e) => handleDragOver(e, id, index)}
-												onDrop={() => handleDrop(id, index)}
-												onDragEnd={handleDragEnd}
-											>
-												<div className="admin-photo-thumb-wrap w-20 h-20 rounded-md overflow-hidden shrink-0 border border-slate-700 bg-black/20">
-													<img src={photo.thumb || photo.full} alt={photo.alt} className="w-full h-full object-cover" />
-												</div>
-
-												<div className="admin-photo-main flex-1 flex flex-col gap-1">
-													<div className="admin-photo-row flex items-center justify-between gap-2">
-														<span className="admin-photo-handle text-xs text-slate-300 cursor-grab select-none">
-															:: 드래그로 순서 변경
-														</span>
-														<button
-															type="button"
-															className="admin-submit"
-															onClick={() => handleDeletePhoto(id, originalIndex)}
-														>
-															삭제
-														</button>
+											<div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4 space-y-3">
+												<div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+													<div>
+														<h3 className="text-sm font-semibold text-white">방문 통계</h3>
+														<p className="text-xs text-slate-300">
+															기간을 선택하면 합계를 보여주고, 아래에서 날짜별 상세를 확인할 수 있어요.
+														</p>
 													</div>
 
-													{/* ✅ 파일명 (클릭 시 원본 새 탭) */}
-													{fname && (
-														<p className="text-[11px] text-slate-300">
-															<span className="text-slate-500">파일명:</span>{' '}
-															<a
-																href={photo.full || photo.thumb}
-																target="_blank"
-																rel="noopener noreferrer"
-																className="underline hover:text-slate-100"
-																onClick={(e) => e.stopPropagation()} // ✅ 편집 토글 방지
-															>
-																{shortName(fname)}
-															</a>
-														</p>
-													)}
+													{/* 기간 선택 */}
+													<div className="flex flex-col sm:flex-row sm:items-end gap-2">
+														<label className="flex flex-col gap-1">
+															<span className="text-[11px] text-slate-300">시작</span>
+															<input
+																type="date"
+																value={from}
+																onChange={(e) => setRangeFromByEvent((p) => ({ ...p, [id]: e.target.value }))}
+																className="admin-input"
+															/>
+														</label>
 
-													{photo.alt && <p className="admin-photo-alt text-xs text-slate-400">{photo.alt}</p>}
+														<label className="flex flex-col gap-1">
+															<span className="text-[11px] text-slate-300">끝</span>
+															<input
+																type="date"
+																value={to}
+																onChange={(e) => setRangeToByEvent((p) => ({ ...p, [id]: e.target.value }))}
+																className="admin-input"
+															/>
+														</label>
+													</div>
+												</div>
+												<div className="flex flex-wrap gap-2">
+													{['day', 'week', 'month', 'year'].map((u) => (
+														<button
+															key={u}
+															type="button"
+															className={
+																'admin-submit ' +
+																(unit === u ? 'ring-1 ring-slate-300' : 'opacity-80 hover:opacity-100')
+															}
+															onClick={() => {
+																const today = isoDate();
+																const r = rangeByUnit(today, u);
+
+																setUnitByEvent((p) => ({ ...p, [id]: u }));
+																setRangeFromByEvent((p) => ({ ...p, [id]: r.from }));
+																setRangeToByEvent((p) => ({ ...p, [id]: r.to }));
+															}}
+														>
+															{u === 'day' ? '일별' : u === 'week' ? '주별' : u === 'month' ? '월별' : '년도별'}
+														</button>
+													))}
+												</div>
+												{/* 기간 합계 */}
+												<div className="flex flex-wrap items-center gap-2 text-xs">
+													<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
+														선택 기간 합계 · 조회수 {sum.views}
+													</span>
+													<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
+														선택 기간 합계 · 방문자 {sum.visitors}
+													</span>
+													<span className="text-slate-400">
+														({from} ~ {to} : {unit === 'day' && '최근 7일 기준'}
+														{unit === 'week' && '최근 8주 기준'}
+														{unit === 'month' && '최근 12개월 기준'}
+														{unit === 'year' && '최근 5년 기준'})
+													</span>
+												</div>
+
+												{/* 그래프 (선택 기간 기반) */}
+												<div className="mt-3">
+													<div className="text-xs text-slate-300 mb-2">선택 기간 그래프</div>
+													<StatsLineChart
+														labels={chartLabels}
+														unit={unit}
+														series={[
+															{ name: '조회수', values: chartViews },
+															{ name: '방문자', values: chartVisitors },
+														]}
+													/>
+												</div>
+
+												{/* 날짜별/주별/월별/년도별 표 (그래프와 동일 기준) */}
+												<div>
+													<div className="text-xs text-slate-300 mb-2">
+														{unit === 'day'
+															? '일별 상세'
+															: unit === 'week'
+															? '주별 상세'
+															: unit === 'month'
+															? '월별 상세'
+															: '년도별 상세'}
+													</div>
+
+													<div className="overflow-x-auto rounded border border-slate-700/60">
+														<table className="min-w-full text-xs">
+															<thead className="bg-slate-800/60 text-slate-200">
+																<tr>
+																	<th className="px-3 py-2 text-left font-medium">
+																		{unit === 'day'
+																			? '날짜'
+																			: unit === 'week'
+																			? '주(시작일)'
+																			: unit === 'month'
+																			? '월'
+																			: '년도'}
+																	</th>
+																	<th className="px-3 py-2 text-right font-medium">조회수</th>
+																	<th className="px-3 py-2 text-right font-medium">방문자</th>
+																</tr>
+															</thead>
+
+															<tbody>
+																{agg.rows
+																	.slice()
+																	.reverse()
+																	.map((r) => (
+																		<tr key={r.key} className="border-t border-slate-800/60 text-slate-200">
+																			<td className="px-3 py-2 text-slate-300">{r.key}</td>
+																			<td className="px-3 py-2 text-right">{Number(r.views || 0)}</td>
+																			<td className="px-3 py-2 text-right">{Number(r.visitors || 0)}</td>
+																		</tr>
+																	))}
+															</tbody>
+														</table>
+													</div>
 												</div>
 											</div>
 										);
-									})}
+									})()}
 
-									{orderedPhotos.length === 0 && (
-										<p className="admin-desc text-sm text-slate-400">등록된 이미지가 없습니다.</p>
-									)}
-								</div>
+									{/* 추가 이미지 업로드 */}
+									<div className="admin-row">
+										<div className="w-full flex flex-col gap-2">
+											<div className="flex items-end justify-between gap-4">
+												<div className="flex-1 flex flex-col gap-2">
+													<span className="text-xs font-medium text-slate-200">추가 이미지 업로드</span>
 
-								{/* 저장 / 취소 버튼 */}
-								<div className="flex justify-end gap-2 mt-3">
-									<button
-										type="button"
-										className="admin-submit"
-										disabled={!dirtyEvents[id]}
-										onClick={() => handleReset(id)}
-									>
-										변경 취소
-									</button>
-									<button
-										type="button"
-										className="admin-submit"
-										disabled={!dirtyEvents[id]}
-										onClick={() => handleSave(id)}
-									>
-										변경 사항 저장
-									</button>
+													{/* ✅ Dropzone */}
+													<div
+														onClick={(e) => e.stopPropagation()}
+														onDragOver={(e) => handleDragOverFiles(id, e)}
+														onDragLeave={(e) => handleDragLeaveFiles(id, e)}
+														onDrop={(e) => handleDropFiles(id, e)}
+														className={[
+															'rounded-lg border border-dashed px-3 py-3 transition',
+															isDroppingByEvent?.[id]
+																? 'border-slate-300 bg-slate-800/40'
+																: 'border-slate-700/70 bg-slate-950/20',
+														].join(' ')}
+													>
+														<div className="text-xs text-slate-300">파일을 여기로 드래그해서 놓기 (이미지 파일만)</div>
+
+														<div className="mt-2">
+															<FilePicker
+																id={`add-files-${id}`}
+																multiple
+																accept="image/*"
+																files={files}
+																onChange={(e) => handleFileChangeForEvent(id, e)}
+																buttonText="파일 선택"
+																helpText="이미지 여러 장 선택 가능"
+															/>
+														</div>
+													</div>
+												</div>
+
+												<button
+													type="button"
+													className="admin-submit shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+													disabled={!!uploadBusyByEvent?.[id]}
+													onClick={() => handleAddPhotos(id, ev)}
+												>
+													{uploadBusyByEvent?.[id] ? (
+														<>
+															<Spinner />
+															업로드 중…
+														</>
+													) : (
+														'이미지 추가'
+													)}
+												</button>
+											</div>
+
+											{files.length > 0 && (
+												<p className="admin-files text-xs text-slate-300">
+													선택된 파일: {files.map((f) => f.name).join(', ')}
+												</p>
+											)}
+										</div>
+									</div>
+
+									{/* 이미지 목록 + 드래그 앤 드랍 순서 조정 + 삭제 */}
+									<div className="admin-photo-list mt-3 flex flex-col">
+										{orderedPhotos.map((photo, index) => {
+											const originalIndex = order[index]; // 서버 기준 인덱스
+											const isDragging = dragInfo.eventId === id && dragInfo.index === index;
+											const fname = fileNameFromUrl(photo.full || photo.thumb);
+
+											return (
+												<div
+													key={`${originalIndex}-${photo.full || photo.thumb || index}`}
+													className={
+														'flex items-start gap-3 rounded-md border border-slate-700 bg-slate-900/80 p-3 shadow-sm transition ' +
+														(isDragging ? 'opacity-50 border-indigo-400 shadow-md' : '')
+													}
+													draggable
+													onDragStart={() => handleDragStart(id, index)}
+													onDragOver={(e) => handleDragOver(e, id, index)}
+													onDrop={() => handleDrop(id, index)}
+													onDragEnd={handleDragEnd}
+												>
+													<div className="admin-photo-thumb-wrap w-20 h-20 rounded-md overflow-hidden shrink-0 border border-slate-700 bg-black/20">
+														<img
+															src={photo.thumb || photo.full}
+															alt={photo.alt}
+															className="w-full h-full object-cover"
+														/>
+													</div>
+
+													<div className="admin-photo-main flex-1 flex flex-col gap-1">
+														<div className="admin-photo-row flex items-center justify-between gap-2">
+															<span className="admin-photo-handle text-xs text-slate-300 cursor-grab select-none">
+																:: 드래그로 순서 변경
+															</span>
+															<button
+																type="button"
+																className="admin-submit"
+																onClick={() => handleDeletePhoto(id, originalIndex)}
+															>
+																삭제
+															</button>
+														</div>
+
+														{/* ✅ 파일명 (클릭 시 원본 새 탭) */}
+														{fname && (
+															<p className="text-[11px] text-slate-300">
+																<span className="text-slate-500">파일명:</span>{' '}
+																<a
+																	href={photo.full || photo.thumb}
+																	target="_blank"
+																	rel="noopener noreferrer"
+																	className="underline hover:text-slate-100"
+																	onClick={(e) => e.stopPropagation()} // ✅ 편집 토글 방지
+																>
+																	{shortName(fname)}
+																</a>
+															</p>
+														)}
+
+														{photo.alt && <p className="admin-photo-alt text-xs text-slate-400">{photo.alt}</p>}
+													</div>
+												</div>
+											);
+										})}
+
+										{orderedPhotos.length === 0 && (
+											<p className="admin-desc text-sm text-slate-400">등록된 이미지가 없습니다.</p>
+										)}
+									</div>
+
+									{/* 저장 / 취소 버튼 */}
+									<div className="flex justify-end gap-2 mt-3">
+										<button
+											type="button"
+											className="admin-submit"
+											disabled={!dirtyEvents[id]}
+											onClick={() => handleReset(id)}
+										>
+											변경 취소
+										</button>
+										<button
+											type="button"
+											className="admin-submit"
+											disabled={!dirtyEvents[id]}
+											onClick={() => handleSave(id)}
+										>
+											변경 사항 저장
+										</button>
+									</div>
 								</div>
-							</div>
-						)}
-					</div>
-				);
-			})}
-		</section>
+							)}
+						</div>
+					);
+				})}
+			</section>
+			{toastNode}
+		</>
 	);
 }
