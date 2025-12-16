@@ -66,6 +66,28 @@
                 "full": "\/gallery-images\/test2\/3_full.webp",
                 "thumb": "\/gallery-images\/test2\/3_thumb.webp",
                 "alt": "테스트2 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test2\/36_full.webp",
+                "thumb": "\/gallery-images\/test2\/36_thumb.webp",
+                "alt": "테스트2 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test2\/37_full.webp",
+                "thumb": "\/gallery-images\/test2\/37_thumb.webp",
+                "alt": "테스트2 - 이미지"
+            }
+        ],
+        "views": 0
+    },
+    "test3": {
+        "title": "테스트3",
+        "note": "",
+        "photos": [
+            {
+                "full": "\/gallery-images\/test3\/_1_full.webp",
+                "thumb": "\/gallery-images\/test3\/_1_thumb.webp",
+                "alt": "테스트3 - 이미지"
             }
         ],
         "views": 0

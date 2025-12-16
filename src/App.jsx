@@ -52,8 +52,16 @@ function fileNameFromUrl(url) {
 
 function shortName(name, max = 42) {
 	if (!name) return '';
-	if (name.length <= max) return name;
-	return name.slice(0, max - 1) + '…';
+	return name.length <= max ? name : name.slice(0, max - 1) + '…';
+}
+
+function Spinner({ className = 'w-4 h-4' }) {
+	return (
+		<span
+			className={`${className} inline-block border-2 border-current border-t-transparent rounded-full animate-spin`}
+			aria-label="loading"
+		/>
+	);
 }
 
 export default function App() {
@@ -604,10 +612,10 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 	const [files, setFiles] = useState([]);
 	const [busy, setBusy] = useState(false);
 	const [msg, setMsg] = useState('');
+  const [isDropping, setIsDropping] = useState(false);
 
 	const handleFileChange = (e) => {
-		const fileList = Array.from(e.target.files || []);
-		setFiles(fileList);
+		setFilesFromList(e.target.files);
 	};
 
 	const handleSubmit = async (e) => {
@@ -653,6 +661,21 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 			setBusy(false);
 		}
 	};
+
+  function setFilesFromList(list) {
+		const arr = Array.from(list || []).filter((f) => f && f.type?.startsWith('image/'));
+		setFiles(arr);
+	}
+
+	function handleDropFiles(e) {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDropping(false);
+
+		const dt = e.dataTransfer;
+		if (!dt?.files?.length) return;
+		setFilesFromList(dt.files);
+	}
 
 	return (
 		<div className="admin-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
@@ -705,18 +728,41 @@ function AdminNewEventModal({ onClose, onUploaded }) {
 					{/* 이미지 업로드 */}
 					<div className="admin-row">
 						<div className="w-full flex flex-col gap-2">
-							<label className="flex flex-col gap-1 text-sm text-slate-100">
-								<span className="text-xs font-medium text-slate-200">이미지 파일 (여러 장 선택 가능)</span>
-								<FilePicker
-									id="modal-new-event-files"
-									multiple
-									accept="image/*"
-									files={files}
-									onChange={handleFileChange}
-									buttonText="이미지 선택"
-									helpText="여러 장 선택 가능"
-								/>
-							</label>
+							<span className="text-xs font-medium text-slate-200">이미지 파일 (여러 장 선택 가능)</span>
+
+							{/* ✅ Dropzone (새 행사 등록용) */}
+							<div
+								onClick={(e) => e.stopPropagation()}
+								onDragOver={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									setIsDropping(true);
+								}}
+								onDragLeave={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									setIsDropping(false);
+								}}
+								onDrop={handleDropFiles}
+								className={[
+									'rounded-lg border border-dashed px-3 py-3 transition',
+									isDropping ? 'border-slate-300 bg-slate-800/40' : 'border-slate-700/70 bg-slate-950/20',
+								].join(' ')}
+							>
+								<div className="text-xs text-slate-300">파일을 여기로 드래그해서 놓기 (이미지 파일만)</div>
+
+								<div className="mt-2">
+									<FilePicker
+										id="modal-new-event-files"
+										multiple
+										accept="image/*"
+										files={files}
+										onChange={handleFileChange}
+										buttonText="이미지 선택"
+										helpText="여러 장 선택 가능"
+									/>
+								</div>
+							</div>
 
 							{files.length > 0 && (
 								<p className="admin-files text-xs text-slate-300">선택된 파일: {files.map((f) => f.name).join(', ')}</p>
@@ -850,6 +896,8 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const [rangeFromByEvent, setRangeFromByEvent] = useState({});
 	const [rangeToByEvent, setRangeToByEvent] = useState({});
 
+	const [isDroppingByEvent, setIsDroppingByEvent] = useState({});
+
 	// 편집 모드 진입할 때 draft 초기화
 	function openEditor(eventId) {
 		const ev = events[eventId];
@@ -965,11 +1013,40 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	}
 
 	function handleFileChangeForEvent(eventId, e) {
-		const files = Array.from(e.target.files || []);
-		setUploadFiles((prev) => ({
-			...prev,
-			[eventId]: files,
-		}));
+		setFilesForEvent(eventId, e.target.files);
+	}
+
+	function setFilesForEvent(eventId, fileList) {
+		const files = Array.from(fileList || []).filter((f) => f && f.type?.startsWith('image/'));
+		setUploadFiles((prev) => ({ ...prev, [eventId]: files }));
+	}
+
+	function handleDropFiles(eventId, e) {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDroppingByEvent((p) => ({ ...p, [eventId]: false }));
+
+		const dt = e.dataTransfer;
+		if (!dt) return;
+
+		// 폴더 드랍은 브라우저별 처리 복잡해서 일단 파일만
+		const files = dt.files;
+		if (!files || files.length === 0) return;
+
+		setFilesForEvent(eventId, files);
+	}
+
+	function handleDragOverFiles(eventId, e) {
+		e.preventDefault();
+		e.stopPropagation();
+		// 드랍 가능 표시
+		if (!isDroppingByEvent[eventId]) setIsDroppingByEvent((p) => ({ ...p, [eventId]: true }));
+	}
+
+	function handleDragLeaveFiles(eventId, e) {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDroppingByEvent((p) => ({ ...p, [eventId]: false }));
 	}
 
 	// 이미지 추가 업로드는 즉시 서버 반영
@@ -1813,23 +1890,42 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 								<div className="admin-row">
 									<div className="w-full flex flex-col gap-2">
 										<div className="flex items-end justify-between gap-4">
-											<label className="flex flex-col gap-1 flex-1">
+											<div className="flex-1 flex flex-col gap-2">
 												<span className="text-xs font-medium text-slate-200">추가 이미지 업로드</span>
-												<FilePicker
-													id={`add-files-${id}`}
-													multiple
-													accept="image/*"
-													files={files}
-													onChange={(e) => handleFileChangeForEvent(id, e)}
-													buttonText="파일 선택"
-													helpText="이미지 여러 장 선택 가능"
-												/>
-											</label>
+
+												{/* ✅ Dropzone */}
+												<div
+													onClick={(e) => e.stopPropagation()}
+													onDragOver={(e) => handleDragOverFiles(id, e)}
+													onDragLeave={(e) => handleDragLeaveFiles(id, e)}
+													onDrop={(e) => handleDropFiles(id, e)}
+													className={[
+														'rounded-lg border border-dashed px-3 py-3 transition',
+														isDroppingByEvent?.[id]
+															? 'border-slate-300 bg-slate-800/40'
+															: 'border-slate-700/70 bg-slate-950/20',
+													].join(' ')}
+												>
+													<div className="text-xs text-slate-300">파일을 여기로 드래그해서 놓기 (이미지 파일만)</div>
+
+													<div className="mt-2">
+														<FilePicker
+															id={`add-files-${id}`}
+															multiple
+															accept="image/*"
+															files={files}
+															onChange={(e) => handleFileChangeForEvent(id, e)}
+															buttonText="파일 선택"
+															helpText="이미지 여러 장 선택 가능"
+														/>
+													</div>
+												</div>
+											</div>
 
 											<button
 												type="button"
-												className="admin-submit flex-shrink-0 flex items-center gap-2 disabled:opacity-50"
-												disabled={files.length === 0 || uploadBusyByEvent?.[id]}
+												className="admin-submit shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+												disabled={!!uploadBusyByEvent?.[id]}
 												onClick={() => handleAddPhotos(id, ev)}
 											>
 												{uploadBusyByEvent?.[id] ? (
@@ -1871,7 +1967,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 												onDrop={() => handleDrop(id, index)}
 												onDragEnd={handleDragEnd}
 											>
-												<div className="admin-photo-thumb-wrap w-20 h-20 rounded-md overflow-hidden flex-shrink-0 border border-slate-700 bg-black/20">
+												<div className="admin-photo-thumb-wrap w-20 h-20 rounded-md overflow-hidden shrink-0 border border-slate-700 bg-black/20">
 													<img src={photo.thumb || photo.full} alt={photo.alt} className="w-full h-full object-cover" />
 												</div>
 
@@ -1941,15 +2037,5 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 				);
 			})}
 		</section>
-	);
-}
-
-function Spinner({ className = '' }) {
-	return (
-		<span
-			className={
-				'inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin ' + className
-			}
-		/>
 	);
 }

@@ -10,8 +10,8 @@ $eventId  = trim($_POST['event_id'] ?? '');
 $title    = trim($_POST['title'] ?? '');
 $note     = trim($_POST['note'] ?? ''); // 🔹 관리자 비공개 메모 (선택)
 
-if ($eventId === '' || $title === '' || $date === '') {
-  json_fail('event_id, title, date는 필수입니다.');
+if ($eventId === '' || $title === '') {
+  json_fail('event_id, title는 필수입니다.');
 }
 
 if (!preg_match('/^[a-z0-9_\-]+$/', $eventId)) {
