@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import 'yet-another-react-lightbox/styles.css';
@@ -48,15 +48,12 @@ export default function App() {
 	const eventEntries = Object.entries(events || {});
 	const eventData = eventId ? events[eventId] : null;
 
-  const viewedKey = useMemo(() => (eventId ? `viewed_${eventId}` : null), [eventId]);
+	const viewSentRef = useRef(false);
 
-	// ✅ 그리고 바로 아래에 조회수 증가 useEffect
 	useEffect(() => {
 		if (!eventId || !eventData) return;
-
-		// dev에서 StrictMode로 useEffect 2번 도는 거 방지
-		if (import.meta.env.DEV && viewedKey && sessionStorage.getItem(viewedKey)) return;
-		if (import.meta.env.DEV && viewedKey) sessionStorage.setItem(viewedKey, '1');
+		if (viewSentRef.current) return;
+		viewSentRef.current = true;
 
 		(async () => {
 			try {
@@ -68,7 +65,7 @@ export default function App() {
 				console.warn('view_event 실패(무시 가능):', e);
 			}
 		})();
-	}, [eventId, eventData, viewedKey]);
+	}, [eventId, eventData]);
 
 	// 🔹 /admin 또는 /gallery/admin 같은 경로인지 체크
 	const isAdminRoute = window.location.pathname.includes('admin');
@@ -720,10 +717,9 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const [noteDrafts, setNoteDrafts] = useState({});
 	const [uploadFiles, setUploadFiles] = useState({});
 	const [activeEventId, setActiveEventId] = useState(null);
-
-	// 사진 순서 draft: { [eventId]: [0,1,2,...] }
 	const [photoOrderDrafts, setPhotoOrderDrafts] = useState({});
-	// 저장 안 된 변경 여부: { [eventId]: true/false }
+	const [photoRenderLimitByEvent, setPhotoRenderLimitByEvent] = useState({});
+
 	const [dirtyEvents, setDirtyEvents] = useState({});
 	// 드래그 상태
 	const [dragInfo, setDragInfo] = useState({ eventId: null, index: null });
@@ -733,6 +729,9 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 	const QR_BASE_PROD = 'https://ulsan-namgu.com/gallery';
 	const QR_BASE_DEV = 'http://localhost:5173';
 	const qrBaseUrl = import.meta.env.DEV ? QR_BASE_DEV : QR_BASE_PROD;
+
+	const [rangeFromByEvent, setRangeFromByEvent] = useState({});
+	const [rangeToByEvent, setRangeToByEvent] = useState({});
 
 	// 편집 모드 진입할 때 draft 초기화
 	function openEditor(eventId) {
@@ -758,6 +757,11 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 		}));
 
 		setActiveEventId(eventId);
+
+		const today = isoDate();
+		setRangeToByEvent((p) => ({ ...p, [eventId]: p[eventId] || today }));
+		setRangeFromByEvent((p) => ({ ...p, [eventId]: p[eventId] || addDays(today, -6) })); // 기본 최근7일
+		setPhotoRenderLimitByEvent((p) => ({ ...p, [eventId]: p[eventId] || 60 })); // 처음엔 60장만 렌더
 	}
 
 	// 편집 패널 열고 닫기 + 저장 안 된 변경 경고
@@ -1037,6 +1041,60 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 		}));
 	}
 
+	function isoDate(d = new Date()) {
+		const y = d.getFullYear();
+		const m = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${y}-${m}-${day}`;
+	}
+
+	function addDays(dateStr, days) {
+		const [y, m, d] = dateStr.split('-').map(Number);
+		const dt = new Date(y, m - 1, d); // 로컬 기준 날짜
+		dt.setDate(dt.getDate() + days);
+		return isoDate(dt);
+	}
+
+	function dateRangeArray(from, to) {
+		if (!from || !to) return [];
+		if (from > to) return [];
+
+		const out = [];
+		let cur = from;
+
+		// ✅ 안전장치: 최대 400일까지만 (무한루프 방지)
+		for (let guard = 0; guard < 400 && cur <= to; guard++) {
+			out.push(cur);
+
+			const next = addDays(cur, 1);
+			// ✅ addDays가 실패하거나 같은 값이면 중단 (무한루프 방지)
+			if (!next || next === cur) break;
+
+			cur = next;
+		}
+		return out;
+	}
+
+	function sumStats(stats, keys) {
+		let views = 0;
+		let visitors = 0;
+		for (const k of keys) {
+			const row = stats?.[k];
+			if (row) {
+				views += Number(row.views || 0);
+				visitors += Number(row.visitors || 0);
+			}
+		}
+		return { views, visitors };
+	}
+
+	function lastNDaysKeys(n) {
+		const today = isoDate() || '2025-01-01'; // fallback
+		const keys = [];
+		for (let i = n - 1; i >= 0; i--) keys.push(addDays(today, -i));
+		return keys;
+	}
+
 	if (entries.length === 0) {
 		return (
 			<section className="admin-upload p-6 rounded-lg bg-slate-800/40 border border-slate-700/50 text-center">
@@ -1080,6 +1138,7 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 			</div>
 
 			{entries.map(([id, ev]) => {
+				const safeStats = typeof ev.stats === 'object' && ev.stats !== null ? ev.stats : {};
 				const qrUrl = `${qrBaseUrl}/?event=${encodeURIComponent(id)}`;
 				const isActive = activeEventId === id;
 				const files = uploadFiles[id] || [];
@@ -1120,10 +1179,32 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 											<strong className="text-sm md:text-base">{ev.title}</strong>
 											<span className="admin-event-meta text-xs text-slate-400">({id})</span>
 										</div>
-										<p className="text-[11px] text-slate-400">
-											이미지 {ev.photos?.length ?? 0}장 · 조회수 {Number(ev.views || 0)} · 방문자{' '}
-											{Number(ev.unique_views || 0)} · 클릭하면 상세 편집
-										</p>
+										{(() => {
+											const stats = safeStats || {};
+											const todayKey = isoDate();
+											const todaySum = sumStats(stats, [todayKey]);
+											const last7Sum = sumStats(stats, lastNDaysKeys(7));
+
+											return (
+												<p className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+													<span>이미지 {ev.photos?.length ?? 0}장</span>
+													<span>·</span>
+													<span>총 조회수 {Number(ev.views || 0)}회</span>
+													<span>·</span>
+													<span>총 방문자 {Number(ev.visitors || 0)}명</span>
+
+													<span className="ml-1 inline-flex items-center gap-1 rounded bg-slate-800/70 border border-slate-700 px-2 py-0.5 text-slate-200">
+														오늘 조회 {todaySum.views} · 방문자 {todaySum.visitors}
+													</span>
+
+													<span className="inline-flex items-center gap-1 rounded bg-slate-800/70 border border-slate-700 px-2 py-0.5 text-slate-200">
+														최근7일 조회 {last7Sum.views} · 방문자 {last7Sum.visitors}
+													</span>
+
+													<span className="text-slate-500">· 클릭하면 상세 편집</span>
+												</p>
+											);
+										})()}
 									</div>
 								</div>
 							</div>
@@ -1164,6 +1245,141 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 										/>
 									</label>
 								</div>
+
+								{/* 통계: 기간 선택 + 합계 + 날짜별 */}
+								{(() => {
+									if (!rangeFromByEvent[id] || !rangeToByEvent[id]) {
+										return <div className="text-xs text-slate-400">통계 데이터를 준비 중입니다…</div>;
+									}
+									const stats = safeStats || {};
+									const today = isoDate();
+									const from = rangeFromByEvent[id] || addDays(today, -6);
+									const to = rangeToByEvent[id] || today;
+
+									const keys = dateRangeArray(from, to);
+									const sum = sumStats(stats, keys);
+
+									// 표는 최근 14일을 보여주자(데이터가 없으면 0)
+									const tableKeys = lastNDaysKeys(14).slice().reverse(); // 최신이 위로 오게
+
+									// 미니 캘린더: 최근 30일
+									const calKeys = lastNDaysKeys(30);
+
+									return (
+										<div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4 space-y-3">
+											<div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+												<div>
+													<h3 className="text-sm font-semibold text-white">방문 통계</h3>
+													<p className="text-xs text-slate-300">
+														기간을 선택하면 합계를 보여주고, 아래에서 날짜별 상세를 확인할 수 있어요.
+													</p>
+												</div>
+
+												{/* 기간 선택 */}
+												<div className="flex flex-col sm:flex-row sm:items-end gap-2">
+													<label className="flex flex-col gap-1">
+														<span className="text-[11px] text-slate-300">시작</span>
+														<input
+															type="date"
+															value={from}
+															onChange={(e) => setRangeFromByEvent((p) => ({ ...p, [id]: e.target.value }))}
+															className="admin-input"
+														/>
+													</label>
+
+													<label className="flex flex-col gap-1">
+														<span className="text-[11px] text-slate-300">끝</span>
+														<input
+															type="date"
+															value={to}
+															onChange={(e) => setRangeToByEvent((p) => ({ ...p, [id]: e.target.value }))}
+															className="admin-input"
+														/>
+													</label>
+
+													<button
+														type="button"
+														className="admin-submit sm:self-end"
+														onClick={() => {
+															const t = isoDate();
+															setRangeToByEvent((p) => ({ ...p, [id]: t }));
+															setRangeFromByEvent((p) => ({ ...p, [id]: addDays(t, -6) }));
+														}}
+													>
+														최근 7일
+													</button>
+												</div>
+											</div>
+
+											{/* 기간 합계 */}
+											<div className="flex flex-wrap items-center gap-2 text-xs">
+												<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
+													선택 기간 합계 · 조회수 {sum.views}
+												</span>
+												<span className="rounded bg-slate-800/70 border border-slate-700 px-2 py-1 text-slate-200">
+													선택 기간 합계 · 방문자 {sum.visitors}
+												</span>
+												<span className="text-slate-400">
+													({from} ~ {to})
+												</span>
+											</div>
+
+											{/* 미니 캘린더(최근 30일) */}
+											<div>
+												<div className="text-xs text-slate-300 mb-2">최근 30일</div>
+												<div className="grid grid-cols-10 gap-1">
+													{calKeys.map((k) => {
+														const v = Number(stats?.[k]?.views || 0);
+														const u = Number(stats?.[k]?.visitors || 0);
+														const active = v > 0 || u > 0;
+														return (
+															<div
+																key={k}
+																title={`${k}\n조회수 ${v}\n방문자 ${u}`}
+																className={
+																	'h-7 rounded border text-[10px] flex items-center justify-center ' +
+																	(active
+																		? 'border-slate-600 bg-slate-800 text-slate-100'
+																		: 'border-slate-800 bg-slate-950/30 text-slate-500')
+																}
+															>
+																{k.slice(8)}
+															</div>
+														);
+													})}
+												</div>
+											</div>
+
+											{/* 날짜별 표(최근 14일) */}
+											<div>
+												<div className="text-xs text-slate-300 mb-2">최근 14일 상세</div>
+												<div className="overflow-x-auto rounded border border-slate-700/60">
+													<table className="min-w-full text-xs">
+														<thead className="bg-slate-800/60 text-slate-200">
+															<tr>
+																<th className="px-3 py-2 text-left font-medium">날짜</th>
+																<th className="px-3 py-2 text-right font-medium">조회수</th>
+																<th className="px-3 py-2 text-right font-medium">방문자</th>
+															</tr>
+														</thead>
+														<tbody>
+															{tableKeys.map((k) => {
+																const row = stats?.[k] || { views: 0, visitors: 0 };
+																return (
+																	<tr key={k} className="border-t border-slate-800/60 text-slate-200">
+																		<td className="px-3 py-2 text-slate-300">{k}</td>
+																		<td className="px-3 py-2 text-right">{Number(row.views || 0)}</td>
+																		<td className="px-3 py-2 text-right">{Number(row.visitors || 0)}</td>
+																	</tr>
+																);
+															})}
+														</tbody>
+													</table>
+												</div>
+											</div>
+										</div>
+									);
+								})()}
 
 								{/* 추가 이미지 업로드 */}
 								<div className="admin-row">

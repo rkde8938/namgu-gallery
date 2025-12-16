@@ -1,65 +1,46 @@
 {
-    "cristmas": {
-        "title": "크리스마스",
-        "date": "21",
-        "location": "123",
-        "photos": [
-            {
-                "full": "\/gallery-images\/cristmas\/snow-6769948_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/snow-6769948_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/cristmas\/candles-8454262_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/candles-8454262_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/cristmas\/christmas-background-1869989_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/christmas-background-1869989_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/cristmas\/christmas-5861895_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/christmas-5861895_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/cristmas\/winter-9748652_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/winter-9748652_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            },
-            {
-                "full": "\/gallery-images\/cristmas\/frost-9983255_full.webp",
-                "thumb": "\/gallery-images\/cristmas\/frost-9983255_thumb.webp",
-                "alt": "크리스마스 - 이미지"
-            }
-        ],
-        "note": "",
-        "views": 6,
-        "unique_views": 2
-    },
     "test": {
         "title": "테스트",
         "note": "",
         "photos": [
             {
-                "full": "\/gallery-images\/test\/8_full.webp",
-                "thumb": "\/gallery-images\/test\/8_thumb.webp",
+                "full": "\/gallery-images\/test\/40_full.webp",
+                "thumb": "\/gallery-images\/test\/40_thumb.webp",
                 "alt": "테스트 - 이미지"
             },
             {
-                "full": "\/gallery-images\/test\/9_full.webp",
-                "thumb": "\/gallery-images\/test\/9_thumb.webp",
+                "full": "\/gallery-images\/test\/35_full.webp",
+                "thumb": "\/gallery-images\/test\/35_thumb.webp",
                 "alt": "테스트 - 이미지"
             },
             {
-                "full": "\/gallery-images\/test\/14_full.webp",
-                "thumb": "\/gallery-images\/test\/14_thumb.webp",
+                "full": "\/gallery-images\/test\/36_full.webp",
+                "thumb": "\/gallery-images\/test\/36_thumb.webp",
+                "alt": "테스트 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test\/37_full.webp",
+                "thumb": "\/gallery-images\/test\/37_thumb.webp",
+                "alt": "테스트 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test\/38_full.webp",
+                "thumb": "\/gallery-images\/test\/38_thumb.webp",
+                "alt": "테스트 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test\/39_full.webp",
+                "thumb": "\/gallery-images\/test\/39_thumb.webp",
                 "alt": "테스트 - 이미지"
             }
         ],
-        "views": 3,
-        "unique_views": 3
+        "views": 5,
+        "visitors": 1,
+        "stats": {
+            "2025-12-16": {
+                "views": 5,
+                "visitors": 1
+            }
+        }
     }
 }

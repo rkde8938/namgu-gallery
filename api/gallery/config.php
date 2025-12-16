@@ -1,5 +1,9 @@
 <?php
-// api/gallery/config.php
+// KST 고정
+date_default_timezone_set('Asia/Seoul');
+
+// JSON 응답이라면 (선택)
+header('Content-Type: application/json; charset=utf-8');
 
 // 🔹 0) 에러 출력은 브라우저로 보내지 말고, 로그로만
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
