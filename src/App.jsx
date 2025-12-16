@@ -1075,6 +1075,105 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 		return out;
 	}
 
+	function StatsLineChart({ labels, series }) {
+		// labels: ['2025-12-10', ...]
+		// series: [{ name:'조회수', values:[...numbers] }, { name:'방문자', values:[...numbers] }]
+		const W = 900;
+		const H = 240;
+		const PAD_L = 44;
+		const PAD_R = 14;
+		const PAD_T = 16;
+		const PAD_B = 32;
+
+		const all = series.flatMap((s) => s.values);
+		const maxV = Math.max(1, ...all);
+		const minV = 0;
+
+		const x = (i) => {
+			const n = Math.max(1, labels.length - 1);
+			return PAD_L + (i * (W - PAD_L - PAD_R)) / n;
+		};
+		const y = (v) => {
+			const t = (v - minV) / (maxV - minV || 1);
+			return PAD_T + (1 - t) * (H - PAD_T - PAD_B);
+		};
+
+		const pathFor = (values) => {
+			if (!values.length) return '';
+			return values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(2)} ${y(v).toFixed(2)}`).join(' ');
+		};
+
+		// x축 라벨은 너무 많으면 4~6개만 찍기
+		const tickCount = Math.min(6, labels.length);
+		const tickIdx = Array.from({ length: tickCount }, (_, k) =>
+			Math.round((k * (labels.length - 1)) / Math.max(1, tickCount - 1))
+		);
+
+		return (
+			<div className="w-full overflow-x-auto rounded border border-slate-700/60 bg-slate-950/20">
+				<svg viewBox={`0 0 ${W} ${H}`} className="min-w-[680px] w-full block">
+					{/* 그리드(가로) */}
+					{[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
+						const yy = PAD_T + (1 - t) * (H - PAD_T - PAD_B);
+						const val = Math.round(minV + t * (maxV - minV));
+						return (
+							<g key={i}>
+								<line x1={PAD_L} y1={yy} x2={W - PAD_R} y2={yy} stroke="currentColor" opacity="0.12" />
+								<text x={PAD_L - 8} y={yy + 4} textAnchor="end" fontSize="11" fill="currentColor" opacity="0.6">
+									{val}
+								</text>
+							</g>
+						);
+					})}
+
+					{/* 축 */}
+					<line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="currentColor" opacity="0.25" />
+					<line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="currentColor" opacity="0.25" />
+
+					{/* 시리즈 선들 (색 지정 안 하랬던 룰이 “차트 색 고정하지 말기”면 여기서도 기본 currentColor로 통일) */}
+					{series.map((s, idx) => (
+						<path
+							key={s.name}
+							d={pathFor(s.values)}
+							fill="none"
+							stroke="currentColor"
+							strokeWidth={idx === 0 ? 2.6 : 1.8}
+							opacity={idx === 0 ? 0.95 : 0.55}
+						/>
+					))}
+
+					{/* x축 라벨 */}
+					{tickIdx.map((i) => {
+						const label = labels[i]?.slice(5); // MM-DD
+						return (
+							<text key={i} x={x(i)} y={H - 10} textAnchor="middle" fontSize="11" fill="currentColor" opacity="0.65">
+								{label}
+							</text>
+						);
+					})}
+				</svg>
+
+				{/* 범례 */}
+				<div className="px-3 py-2 text-xs text-slate-200 flex gap-3 items-center">
+					{series.map((s, idx) => (
+						<span key={s.name} className="inline-flex items-center gap-2">
+							<span
+								className="inline-block rounded-sm"
+								style={{
+									width: 10,
+									height: 3,
+									background: 'currentColor',
+									opacity: idx === 0 ? 0.95 : 0.55,
+								}}
+							/>
+							{s.name}
+						</span>
+					))}
+				</div>
+			</div>
+		);
+	}
+
 	function sumStats(stats, keys) {
 		let views = 0;
 		let visitors = 0;
@@ -1265,6 +1364,11 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 									// 미니 캘린더: 최근 30일
 									const calKeys = lastNDaysKeys(30);
 
+									// 그래프용 데이터 (기간 선택 기반)
+									const chartLabels = keys;
+									const chartViews = keys.map((k) => Number(stats?.[k]?.views || 0));
+									const chartVisitors = keys.map((k) => Number(stats?.[k]?.visitors || 0));
+
 									return (
 										<div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-4 space-y-3">
 											<div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
@@ -1322,6 +1426,18 @@ function AdminEventManager({ events, setEvents, onClickNewEvent }) {
 												<span className="text-slate-400">
 													({from} ~ {to})
 												</span>
+											</div>
+
+											{/* 그래프 (선택 기간 기반) */}
+											<div className="mt-3">
+												<div className="text-xs text-slate-300 mb-2">선택 기간 그래프</div>
+												<StatsLineChart
+													labels={chartLabels}
+													series={[
+														{ name: '조회수', values: chartViews },
+														{ name: '방문자', values: chartVisitors },
+													]}
+												/>
 											</div>
 
 											{/* 미니 캘린더(최근 30일) */}
