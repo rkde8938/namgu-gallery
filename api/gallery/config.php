@@ -51,7 +51,7 @@ if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === 'http://localh
 
 // ★ 반드시 바꿔서 쓸 관리자 계정
 const GALLERY_ADMIN_EMAIL    = 'kim@takemdesign.com';
-const GALLERY_ADMIN_PASSWORD = '$2y$12$0e0wK9wCIlAjMjr6ZiA1BuRRgl.JOJ1PO3XC6ZIncnPgjjw0LoOby';
+const GALLERY_ADMIN_PASSWORD_HASH = '$2y$12$0e0wK9wCIlAjMjr6ZiA1BuRRgl.JOJ1PO3XC6ZIncnPgjjw0LoOby';
 
 // JSON 저장 경로
 define('GALLERY_DATA_DIR', __DIR__ . '/data');
