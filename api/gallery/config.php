@@ -10,6 +10,19 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
 
+ini_set('session.use_strict_mode', '1');
+
+$secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+if (PHP_VERSION_ID >= 70300) {
+  session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => $secure,
+    'httponly' => true,
+    'samesite' => 'Strict',
+  ]);
+}
+
 // 🔹 1) 세션 시작
 session_start();
 
@@ -38,7 +51,7 @@ if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === 'http://localh
 
 // ★ 반드시 바꿔서 쓸 관리자 계정
 const GALLERY_ADMIN_EMAIL    = 'kim@takemdesign.com';
-const GALLERY_ADMIN_PASSWORD = 'Uxeon7735!@';
+const GALLERY_ADMIN_PASSWORD = '$2y$12$0e0wK9wCIlAjMjr6ZiA1BuRRgl.JOJ1PO3XC6ZIncnPgjjw0LoOby';
 
 // JSON 저장 경로
 define('GALLERY_DATA_DIR', __DIR__ . '/data');

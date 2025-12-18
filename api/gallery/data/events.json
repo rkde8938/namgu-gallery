@@ -98,5 +98,42 @@
             }
         ],
         "views": 0
+    },
+    "test4": {
+        "title": "테스트4",
+        "note": "",
+        "photos": [
+            {
+                "full": "\/gallery-images\/test4\/16_full.webp",
+                "thumb": "\/gallery-images\/test4\/16_thumb.webp",
+                "alt": "테스트4 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test4\/17_full.webp",
+                "thumb": "\/gallery-images\/test4\/17_thumb.webp",
+                "alt": "테스트4 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test4\/14_full.webp",
+                "thumb": "\/gallery-images\/test4\/14_thumb.webp",
+                "alt": "테스트4 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test4\/15_full.webp",
+                "thumb": "\/gallery-images\/test4\/15_thumb.webp",
+                "alt": "테스트4 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test4\/12_full.webp",
+                "thumb": "\/gallery-images\/test4\/12_thumb.webp",
+                "alt": "테스트4 - 이미지"
+            },
+            {
+                "full": "\/gallery-images\/test4\/13_full.webp",
+                "thumb": "\/gallery-images\/test4\/13_thumb.webp",
+                "alt": "테스트4 - 이미지"
+            }
+        ],
+        "views": 0
     }
 }

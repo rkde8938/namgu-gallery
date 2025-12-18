@@ -11,17 +11,25 @@ if (!is_array($input)) {
 }
 
 $email    = trim($input['email'] ?? '');
-$password = trim($input['password'] ?? '');
+$password = (string)($input['password'] ?? '');
+$password = trim($password);
 
 if ($email === '' || $password === '') {
   json_fail('이메일과 비밀번호를 입력해 주세요.');
 }
 
-if ($email === GALLERY_ADMIN_EMAIL && $password === GALLERY_ADMIN_PASSWORD) {
+$okEmail = hash_equals(GALLERY_ADMIN_EMAIL, $email);
+$okPass  = $okEmail && password_verify($password, GALLERY_ADMIN_PASSWORD_HASH);
+
+if ($okPass) {
+  // ✅ 세션 고정 방지
+  session_regenerate_id(true);
+
   $_SESSION['gallery_admin'] = [
     'email'    => $email,
     'login_at' => date('c'),
   ];
+
   json_ok([
     'admin' => [
       'email' => $email,
